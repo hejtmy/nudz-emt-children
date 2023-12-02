@@ -4,6 +4,7 @@ format: html
 ---
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 library(tidyverse)
 library(gt)
 here::i_am("web/vr-emt.qmd")
@@ -24,7 +25,35 @@ ggplot(df_vr, aes(age_months, fill = gender)) +
     labs(x = "Age (months)", y = "Count", title = "Age distribution of participants")
 ```
 
-```{r error descriptives}
+### Errors 
+
+::: {.callout-tip}
+
+CO = correct objects/správné předměty resp. Jejich Chyby (už přepočítáno)
+
+OPE = object position errors/chyby v pozici
+
+OOE = object order errors/chyby v pořadí předmětu
+
+LOE = location order errors/chyby v pořadí pozice
+:::
+
+These errors were renamed to a bit clearer naming schemes to prevent OOE, OPE etc.
+
+::: {.callout-tip}
+The errors come in four different types:
+
+- selection error: the participant selected the wrong item
+
+- incorrect_placement: the participant placed the item at a wrong position
+
+- incorrect_object_order: the participant placed the item at a wrong order
+
+- incorrect_location_order: the participant placed the item at a location in a wrong order?
+:::
+
+
+```{r error descriptives, echo = FALSE, message = FALSE}
 df_error_desc <- df_vr %>%
   group_by(difficulty, error_type) %>%
   summarise(mean_error = mean(error_value), 
@@ -58,6 +87,8 @@ df_error_desc %>%
                 position = position_dodge(width = 0.9), width = 0.25) +
   labs(x = "Difficulty", y = "Mean error value", title = "Mean error values in different difficulties and error types")
 ```
+### Relative error
+As there is a difference in the potential number of errors possible at different difficulties, we also calculated the relative error value (error / difficulty). So the number 1 means the maximum number of errors possible at that difficulty.
 
 ```{r error relative descriptives plot}
 df_rel_error_desc %>%
@@ -68,6 +99,13 @@ df_rel_error_desc %>%
   labs(x = "Difficulty", y = "Mean relative error value",
        title = "Mean relative error values in different difficulties and error types")
 ```
+
+So it looks like increasing number of items also increases the general error. So children are probably not simply remembering the first three locations or objects, but just not remembering anything much at all. Average relative error for all types of errors is above 40 percent, with the exception of selection.
+
+
+::: {.callout-warning}
+The other very probably explanation is the dependency of the errors. If one location is incorrect, then more locations will be incorrect after that, as the participant will not be able to place the objects correctly. This will overestimate the number of errors, as the errors are not independent.
+:::
 
 ## VR test results in different ages
 

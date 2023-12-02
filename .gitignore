@@ -44,3 +44,5 @@ vignettes/*.pdf
 # Quarto
 _quarto/
 _site/
+
+/.quarto/
