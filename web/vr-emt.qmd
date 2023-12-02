@@ -1,0 +1,97 @@
+---
+title: "VR test reports"
+format: html
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+library(tidyverse)
+library(gt)
+here::i_am("web/vr-emt.qmd")
+```
+
+```{r loading, message=FALSE, warning=FALSE}
+source(here::here("scripts/loading.R"))
+```
+
+```{r}
+knitr::kable(head(df_vr))
+```
+
+## Descriptives
+```{r}
+ggplot(df_vr, aes(age_months, fill = gender)) +
+    geom_histogram(binwidth = 3) + 
+    labs(x = "Age (months)", y = "Count", title = "Age distribution of participants")
+```
+
+```{r error descriptives}
+df_error_desc <- df_vr %>%
+  group_by(difficulty, error_type) %>%
+  summarise(mean_error = mean(error_value), 
+            sd_error = sd(error_value),
+            sd_error_mean = sd(error_value) / sqrt(n()),
+            min = min(error_value),
+            max = max(error_value),
+            median = median(error_value))
+
+df_rel_error_desc <- df_vr %>%
+  group_by(difficulty, error_type) %>%
+  summarise(mean_error = mean(relative_error_value), 
+            sd_error = sd(relative_error_value),
+            sd_error_mean = sd(relative_error_value) / sqrt(n()),
+            min = min(relative_error_value),
+            max = max(relative_error_value),
+            median = median(relative_error_value))
+
+df_error_desc %>%
+  select(-sd_error_mean) %>%
+  gt() %>%
+  tab_header(title = "Descriptives of error values in different difficulties and error types") %>%
+  fmt_number(columns = where(is.numeric), decimals = 2)
+```
+
+```{r error descriptives plot}
+df_error_desc %>%
+  ggplot(aes(difficulty, mean_error, fill = error_type)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = mean_error - sd_error_mean, ymax = mean_error + sd_error_mean), 
+                position = position_dodge(width = 0.9), width = 0.25) +
+  labs(x = "Difficulty", y = "Mean error value", title = "Mean error values in different difficulties and error types")
+```
+
+```{r error relative descriptives plot}
+df_rel_error_desc %>%
+  ggplot(aes(error_type, mean_error, fill = factor(difficulty))) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = mean_error - sd_error_mean, ymax = mean_error + sd_error_mean), 
+                position = position_dodge(width = 0.9), width = 0.25) +
+  labs(x = "Difficulty", y = "Mean relative error value",
+       title = "Mean relative error values in different difficulties and error types")
+```
+
+## VR test results in different ages
+
+```{r}
+ggplot(df_vr, aes(age_months, relative_error_value)) +
+  geom_point() +
+  facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free_y") +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Age (months)", y = "Relative error value (error / difficulty)", 
+        title = "Relative error in individual error types and difficulties")
+```
+
+Overall there seems to be a trend of older children to make more mistakes, especially in the 4 items difficutly.
+
+```{r logistic regression}
+df_vr %>%
+  mutate(made_error = as.numeric(error_value > 0)) %>%
+  ggplot(aes(age_months, made_error)) +
+  geom_point() +
+  facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free_y") +
+  stat_smooth(method="glm", color="green", se=FALSE, 
+    method.args = list(family=binomial)) + 
+    labs(x = "Age (months)", y = "Has the participant made any error", 
+            title = "VR logistic regression of made error (error > 0) for each difficulty and error type")
+``` 
+
+Similar trend is even for the logistic regression modelling the likelihood of making any error. There seems to be an upward trend for older children to making errors more likely.
