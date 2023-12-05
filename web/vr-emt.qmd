@@ -25,6 +25,17 @@ ggplot(df_vr, aes(age_months, fill = gender)) +
     labs(x = "Age (months)", y = "Count", title = "Age distribution of participants")
 ```
 
+## Finishing
+
+```{r completed}
+df_vr %>%
+  distinct(name, difficulty, age_months) %>%
+  count(name, age_months) %>%
+  count(n)
+```
+
+All children have finished all conditions.
+
 ### Errors 
 
 ::: {.callout-tip}
@@ -51,7 +62,6 @@ The errors come in four different types:
 
 - incorrect_location_order: the participant placed the item at a location in a wrong order?
 :::
-
 
 ```{r error descriptives, echo = FALSE, message = FALSE}
 df_error_desc <- df_vr %>%
