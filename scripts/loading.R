@@ -3,11 +3,15 @@ library(tidyverse)
 library(here)
 i_am("scripts/loading.R")
 
-df_vr <- read_excel(here("data/processed-data.xlsx"), sheet = 3)
 
-# rename first columns using dplyr
-colnames(df_vr)[1:7] <- c("name", "school", "gender", "age_year", "age_month",
-  "birthday", "testing_date")
+rename_demographics <- function(df_input) {
+  colnames(df_input)[1:7] <- c("name", "school", "gender", "age_year", "age_month",
+    "birthday", "testing_date")
+  return(df_input)
+}
+
+df_vr <- read_excel(here("data/processed-data.xlsx"), sheet = 3)
+df_vr <- rename_demographics(df_vr)
 
 df_vr <- df_vr[, -c(30:33)] %>%
   mutate(age_months = age_year * 12 + age_month,
@@ -28,8 +32,10 @@ df_vr <- df_vr %>%
                                 error_type == "OOE" ~ "incorrect_object_order",
                                 error_type == "LOE" ~ "incorrect_location_order")) %>%
   pivot_wider(names_from = "error_type", values_from = "error_value") %>%
-  mutate(total_error = selection + incorect_placement + incorrect_object_order + incorrect_location_order) %>%
-  pivot_longer(cols = c(selection, incorect_placement, incorrect_object_order, incorrect_location_order, total_error),
+  mutate(total_error = selection + incorect_placement +
+                       incorrect_object_order + incorrect_location_order) %>%
+  pivot_longer(cols = c(selection, incorect_placement, incorrect_object_order,
+                        incorrect_location_order, total_error),
                names_to = "error_type",
                values_to = "error_value") %>%
   mutate(relative_error_value = error_value/difficulty,
@@ -37,3 +43,18 @@ df_vr <- df_vr %>%
     # if error type is total_error divide relative error by 4
     mutate(relative_error_value = case_when(error_type == "total_error" ~ relative_error_value/4,
                                             TRUE ~ relative_error_value))
+
+## NR SR preparation -------
+df_nr <- read_excel(here("data/processed-data.xlsx"), sheet = 1)
+df_nr <- rename_demographics(df_nr)
+
+df_nr <- select(df_nr, 1:7, NR = `NR [40]`, SR = `SR [34]`)
+
+df_hiding <- read_excel(here("data/processed-data.xlsx"), sheet = 6)
+df_hiding <- rename_demographics(df_hiding)
+colnames(df_hiding)[8:13] <- c(paste0(c("plush_"), c("what", "where", "order")),
+  paste0(c("child_"), c("what", "where", "order")))
+## Merging it all together
+df_all <- df_vr %>%
+  left_join(select(df_nr, name, school, NR, SR), by = c("name", "school"))
+
