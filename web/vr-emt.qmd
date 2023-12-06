@@ -20,9 +20,13 @@ knitr::kable(head(df_vr))
 
 ## Descriptives
 ```{r}
-ggplot(df_vr, aes(age_months, fill = gender)) +
+df_vr %>%
+  select(name, age_months, gender) %>%
+  distinct() %>%
+  ggplot(aes(age_months, fill = gender)) +
     geom_histogram(binwidth = 3) + 
-    labs(x = "Age (months)", y = "Count", title = "Age distribution of participants")
+    labs(x = "Age (months)", y = "Count", 
+    title = "Age distribution of participants")
 ```
 
 ## Finishing
@@ -95,7 +99,8 @@ df_error_desc %>%
   geom_col(position = "dodge") +
   geom_errorbar(aes(ymin = mean_error - sd_error_mean, ymax = mean_error + sd_error_mean), 
                 position = position_dodge(width = 0.9), width = 0.25) +
-  labs(x = "Difficulty", y = "Mean error value", title = "Mean error values in different difficulties and error types")
+  labs(x = "Difficulty", y = "Mean error value", 
+    title = "Mean error values in different difficulties and error types") 
 ```
 ### Relative error
 As there is a difference in the potential number of errors possible at different difficulties, we also calculated the relative error value (error / difficulty). So the number 1 means the maximum number of errors possible at that difficulty.
@@ -107,7 +112,9 @@ df_rel_error_desc %>%
   geom_errorbar(aes(ymin = mean_error - sd_error_mean, ymax = mean_error + sd_error_mean), 
                 position = position_dodge(width = 0.9), width = 0.25) +
   labs(x = "Difficulty", y = "Mean relative error value",
-       title = "Mean relative error values in different difficulties and error types")
+       title = "Mean relative error values in different difficulties and error types") +
+  #make the x labels 45 degrees
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 So it looks like increasing number of items also increases the general error. So children are probably not simply remembering the first three locations or objects, but just not remembering anything much at all. Average relative error for all types of errors is above 40 percent, with the exception of selection.
@@ -115,6 +122,7 @@ So it looks like increasing number of items also increases the general error. So
 
 ::: {.callout-warning}
 The other very probably explanation is the dependency of the errors. If one location is incorrect, then more locations will be incorrect after that, as the participant will not be able to place the objects correctly. This will overestimate the number of errors, as the errors are not independent.
+
 :::
 
 ## VR test results in different ages
@@ -143,3 +151,118 @@ df_vr %>%
 ``` 
 
 Similar trend is even for the logistic regression modelling the likelihood of making any error. There seems to be an upward trend for older children to making errors more likely.
+
+:::{.callout-note}
+There are a few possible explanations
+
+- the data are missing the time component, so we do not kno how long it actually took the children to answer or how much they moved in the environemnt
+
+- It is possible, that the researcher might have been more supportive with the younger children
+
+- Finally, it is possible that thje researcher might ahve solved the task for the young children (as is suggested in the thesis, that the reearcher kept helping children unable to control the environment on their own), but this information is missing. 
+:::
+
+## Correlation with other metrics
+
+### Story repetition
+
+Maximum points is 40 for the story repetition and 34 for the sentence repetition. Higher score is better.
+
+```{r story repetition score plot}
+df_all %>%
+  ggplot(aes(error_value, NR)) +
+  geom_point() +
+    geom_smooth(method = "lm") +
+facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free") + 
+  labs(x = "Error value", y = "Story repetition score", 
+            title = "Correlation between error value and story repetition score. Split by difficulty")
+
+df_all %>%
+  ggplot(aes(error_value, NR)) +
+  geom_point() +
+    geom_smooth(method = "lm") +
+    facet_wrap(~error_type, scales = "free") +
+    labs(x = "Error value", y = "Story repetition score", 
+            title = "Correlation between error value and story repetition score")
+```
+
+```{r story repetition score}
+df_all %>%
+  group_by(error_type) %>%
+  group_modify(~broom::tidy(cor.test(.$NR, .$error_value, method = "spearman"))) %>%
+  select(estimate, statistic, p.value) %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value))) %>%
+  ungroup() %>%
+  gt() %>%
+    tab_header(title = "Correlation between error value and story repetition score",
+      subtitle = "Spearman correlation between error value and story repetition score for each error type") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2) %>%
+    # add footnote corrected for mutliple comparisons to the header
+    tab_footnote(
+      footnote = "Corrected for multiple comparisons using FDR method",
+      locations = cells_column_labels(vars(p.value))
+    )
+```
+
+### Sentence repetition
+
+```{r sentence repetition score plot}
+df_all %>%
+  ggplot(aes(error_value, SR)) +
+  geom_point() +
+    geom_smooth(method = "lm") +
+facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free") + 
+  labs(x = "Error value", y = "Stentence repetition score", 
+            title = "Correlation between error value and sentence repetition score. Split by difficulty")
+
+df_all %>%
+  ggplot(aes(error_value, SR)) +
+  geom_point() +
+    geom_smooth(method = "lm") +
+    facet_wrap(~error_type, scales = "free") +
+    labs(x = "Error value", y = "Sentence repetition score", 
+            title = "Correlation between error value and sentence repetition score for all difficulties")
+```
+
+```{r sentence repetition score}
+df_all %>%
+  group_by(error_type) %>%
+  group_modify(~broom::tidy(cor.test(.$SR, .$error_value, method = "spearman"))) %>%
+  select(estimate, statistic, p.value) %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value))) %>%
+  ungroup() %>%
+  gt() %>%
+    tab_header(title = "Correlation between error value and sentence repetition score",
+      subtitle = "Spearman correlation between error value and stencence repetition score for each error type") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2) %>%
+    # add footnote corrected for mutliple comparisons to the header
+    tab_footnote(
+      footnote = "Corrected for multiple comparisons using FDR method",
+      locations = cells_column_labels(c(p.value))
+    )
+```
+
+## Hiding task
+
+The kendall rank correlation was used due to the very low number of errors in both cases and ordinal nature fo the data. Visualisation is difficult due to the nature of the dataset. 
+
+```{r hiding task kendall}
+df_all %>%  
+  select(name, school, error_value, error_type, starts_with("plush_"), -plush_what, -plush_what_actor) %>%
+  pivot_longer(starts_with("plush_"), names_to = "hiding_task", values_to = "hiding_task_value") %>%
+  group_by(error_type, hiding_task) %>%
+  group_modify(~broom::tidy(cor.test(.$hiding_task_value, .$error_value, method = "kendall"))) %>%
+  select(estimate, statistic, p.value) %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value))) %>%
+  ungroup() %>%
+  gt() %>% 
+    tab_header(title = "Kendall rank correlation between error value from the VR and hiding task score",
+      subtitle = "Kendall correlation used due to many pairwise comparisons and ordinal data") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2) %>%
+    # add footnote corrected for mutliple comparisons to the header
+    tab_footnote(
+      footnote = "Corrected for multiple comparisons using FDR method",
+      locations = cells_column_labels(c(p.value))
+    )
+
+```
