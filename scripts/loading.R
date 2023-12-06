@@ -3,7 +3,6 @@ library(tidyverse)
 library(here)
 i_am("scripts/loading.R")
 
-
 rename_demographics <- function(df_input) {
   colnames(df_input)[1:7] <- c("name", "school", "gender", "age_year", "age_month",
     "birthday", "testing_date")
@@ -45,16 +44,27 @@ df_vr <- df_vr %>%
                                             TRUE ~ relative_error_value))
 
 ## NR SR preparation -------
-df_nr <- read_excel(here("data/processed-data.xlsx"), sheet = 1)
+df_nr <- read_excel(here("data/processed-data.xlsx"), sheet = 1, na=c("", "-"))
 df_nr <- rename_demographics(df_nr)
 
 df_nr <- select(df_nr, 1:7, NR = `NR [40]`, SR = `SR [34]`)
 
-df_hiding <- read_excel(here("data/processed-data.xlsx"), sheet = 6)
+## Hiding preparation -------
+df_hiding <- read_excel(here("data/processed-data.xlsx"), sheet = 6, na = c("", "-"))
 df_hiding <- rename_demographics(df_hiding)
 colnames(df_hiding)[8:13] <- c(paste0(c("plush_"), c("what", "where", "order")),
   paste0(c("child_"), c("what", "where", "order")))
+df_hiding <- select(df_hiding, name:child_order)
+# separate column hiding which is 1+2 into hiding_1 and hiding_2
+
+df_hiding <- df_hiding %>%
+  separate(plush_what, into = c("plush_what_target", "plush_what_actor"),
+    sep = "\\+", remove = FALSE, convert=TRUE) %>%
+  separate(child_what, into = c("child_what_target", "child_what_actor"), 
+    sep = "\\+", remove = FALSE, convert = TRUE)
+
 ## Merging it all together
 df_all <- df_vr %>%
-  left_join(select(df_nr, name, school, NR, SR), by = c("name", "school"))
+  left_join(select(df_nr, name, school, NR, SR), by = c("name", "school")) %>%
+  left_join(select(df_hiding, name, school, plush_what:child_order), by = c("name", "school"))
 
