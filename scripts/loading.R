@@ -13,7 +13,7 @@ df_vr <- read_excel(here("data/processed-data.xlsx"), sheet = 3)
 df_vr <- rename_demographics(df_vr)
 
 df_vr <- df_vr[, -c(30:33)] %>%
-  mutate(age_months = age_year * 12 + age_month,
+  mutate(age_months = age_month,
     # relabel gender 1 to female and 0 to male
         gender = case_match(gender,  c(0) ~ "male", c(1) ~ "female"))
 
