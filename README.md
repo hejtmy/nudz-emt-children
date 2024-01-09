@@ -1,3 +1,12 @@
+## Project description
+
+
+## Start here
+
+
+## Data description
+
+
 LEGENDA
 
 CO = correct objects/správné předměty resp. Jejich Chyby (už přepočítáno)
@@ -17,3 +26,10 @@ LOEall = chyby u jednoho dítěte v dané složce/parametru (LOE3+LOE4+LOE5)
 
 Pohlaví = 1 dívka, 0 chlapec
 Věk = 60-83 (počet měsíců od data narození k datu testování)
+
+## Dospělí - výsledky
+
+- only object order
+
+RBANS A.1 - seznam slov / word memory
+RBANS A.2 - povídka / story memory
