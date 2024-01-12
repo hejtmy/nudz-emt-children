@@ -11,7 +11,7 @@ here::i_am("web/vr-hiding-task.qmd")
 ```
 
 ```{r loading, message=FALSE, warning=FALSE}
-source(here::here("scripts/loading.R"))
+source(here::here("scripts/loading-children.R"))
 df_vr_all <- df_vr
 df_vr <- df_vr %>%
   filter(difficulty > 3)

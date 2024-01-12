@@ -3,6 +3,9 @@
 
 ## Start here
 
+- buffer the data using `buffer_data.R`
+- 
+
 
 ## Data description
 
