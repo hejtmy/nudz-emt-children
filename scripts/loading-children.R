@@ -4,8 +4,8 @@ library(here)
 i_am("scripts/loading.R")
 
 rename_demographics <- function(df_input) {
-  colnames(df_input)[1:7] <- c("name", "school", "gender", "age_year", "age_month",
-    "birthday", "testing_date")
+  colnames(df_input)[1:7] <- c("name", "school", "gender",
+    "age_year", "age_month", "birthday", "testing_date")
   return(df_input)
 }
 
