@@ -1,5 +1,5 @@
 ---
-title: "VR test reports"
+title: "VR Children EMT test Reports"
 format: html
 ---
 
@@ -12,13 +12,62 @@ here::i_am("web/vr-emt.qmd")
 
 ```{r loading, message=FALSE, warning=FALSE}
 source(here::here("scripts/loading.R"))
+df_vr_all <- df_vr
+df_vr <- df_vr %>%
+  filter(difficulty > 3,
+  !(error_type %in% c("total_error", "incorrect_location_order")))
 ```
+
+## Removig the 3 item difficulty
+```{r}
+df_vr_all %>%
+  filter(difficulty == 3,
+  error_type != "total_error") %>%
+  ggplot(aes(error_value)) +
+    geom_histogram(binwidth = 1) +
+    scale_x_binned(breaks = seq(0, 3, 1)) +
+    facet_wrap(~error_type)
+
+df_vr_all %>%
+  filter(difficulty == 3,
+  error_type != "total_error") %>%
+  count(error_type, error_value) %>%
+  pivot_wider(names_from = error_value, values_from = n, values_fill = 0)
+
+df_vr_all %>%
+  filter(difficulty == 3,
+  error_type != "total_error") %>%
+  count(error_type, made_error) %>%
+  pivot_wider(names_from = made_error, values_from = n, values_fill = 0, names_prefix = "error_") 
+```
+
+As almost no children made any errors in the 3 item difficulty, we considered them more as a training trial, then a real trial. For example 
+
+### Removing the object location error
+
+To simplify theoutput, we decided to keep only the object location error, as the object location and objec torder are heavilly correlated anyways
+
+```{r object location order error corr}
+df_location_object_error <- df_vr_all %>%
+  filter(error_type %in% c("incorrect_location_order", "incorrect_object_order")) %>%
+  select(-c(relative_error_value, made_error)) %>%
+  pivot_wider(names_from = error_type, values_from = error_value)
+
+df_location_object_error %>%
+  ggplot(aes(incorrect_location_order, incorrect_object_order)) +
+    geom_jitter() +
+    geom_smooth(method = "lm") +
+    labs(x = "Incorrect location order error", y = "Incorrect object order error", 
+            title = "Correlation between incorrect location order error and incorrect object order error")
+report::report(cor.test(df_location_object_error$incorrect_location_order, df_location_object_error$incorrect_object_order, 
+method = "kendall"))
+```
+
+## Descriptives
 
 ```{r}
 knitr::kable(head(df_vr))
 ```
-
-## Descriptives
 ```{r}
 df_vr %>%
   select(name, age_months, gender) %>%
@@ -28,17 +77,6 @@ df_vr %>%
     labs(x = "Age (months)", y = "Count", 
     title = "Age distribution of participants")
 ```
-
-## Finishing
-
-```{r completed}
-df_vr %>%
-  distinct(name, difficulty, age_months) %>%
-  count(name, age_months) %>%
-  count(n)
-```
-
-All children have finished all conditions.
 
 ### Errors 
 
@@ -127,20 +165,29 @@ The other very probably explanation is the dependency of the errors. If one loca
 
 ## VR test results in different ages
 
-```{r}
-ggplot(df_vr, aes(age_months, relative_error_value)) +
+```{r different ages and difficulties plot}
+ggplot(df_vr, aes(age_months, relative_error_value, color = gender)) +
   geom_point() +
   facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free_y") +
-  geom_smooth(method = "lm", se = FALSE) +
+  geom_smooth(method = "lm") +
   labs(x = "Age (months)", y = "Relative error value (error / difficulty)", 
         title = "Relative error in individual error types and difficulties")
 ```
 
 Overall there seems to be a trend of older children to make more mistakes, especially in the 4 items difficutly.
 
+```{r different ages }
+ggplot(df_vr, aes(age_months, relative_error_value, color = gender)) +
+  geom_point() +
+  facet_grid(cols = vars(error_type), scales = "free_y") +
+  geom_smooth(method = "lm") +
+  labs(x = "Age (months)", y = "Relative error value (error / difficulty)", 
+        title = "Relative error in individual error types combined for both difficulties of 4 adn 5 items")
+```
+
 ```{r logistic regression}
 df_vr %>%
-  mutate(made_error = as.numeric(error_value > 0)) %>%
+  mutate(made_error = as.numeric(made_error)) %>%
   ggplot(aes(age_months, made_error)) +
   geom_point() +
   facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free_y") +
@@ -159,7 +206,7 @@ There are a few possible explanations
 
 - It is possible, that the researcher might have been more supportive with the younger children
 
-- Finally, it is possible that thje researcher might ahve solved the task for the young children (as is suggested in the thesis, that the reearcher kept helping children unable to control the environment on their own), but this information is missing. 
+- Finally, it is possible that the researcher might have removed the cognitive load for the task for the young children (as is suggested in the thesis, that the reearcher kept helping children unable to control the environment on their own), but information about whom has been helped is missing. 
 :::
 
 ## Correlation with other metrics
@@ -173,7 +220,7 @@ df_all %>%
   ggplot(aes(error_value, NR)) +
   geom_point() +
     geom_smooth(method = "lm") +
-facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free") + 
+  facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free") + 
   labs(x = "Error value", y = "Story repetition score", 
             title = "Correlation between error value and story repetition score. Split by difficulty")
 
@@ -242,27 +289,3 @@ df_all %>%
     )
 ```
 
-## Hiding task
-
-The kendall rank correlation was used due to the very low number of errors in both cases and ordinal nature fo the data. Visualisation is difficult due to the nature of the dataset. 
-
-```{r hiding task kendall}
-df_all %>%  
-  select(name, school, error_value, error_type, starts_with("plush_"), -plush_what, -plush_what_actor) %>%
-  pivot_longer(starts_with("plush_"), names_to = "hiding_task", values_to = "hiding_task_value") %>%
-  group_by(error_type, hiding_task) %>%
-  group_modify(~broom::tidy(cor.test(.$hiding_task_value, .$error_value, method = "kendall"))) %>%
-  select(estimate, statistic, p.value) %>%
-  mutate(p.value = papaja::apa_p(p.adjust(p.value))) %>%
-  ungroup() %>%
-  gt() %>% 
-    tab_header(title = "Kendall rank correlation between error value from the VR and hiding task score",
-      subtitle = "Kendall correlation used due to many pairwise comparisons and ordinal data") %>%
-    fmt_number(columns = where(is.numeric), decimals = 2) %>%
-    # add footnote corrected for mutliple comparisons to the header
-    tab_footnote(
-      footnote = "Corrected for multiple comparisons using FDR method",
-      locations = cells_column_labels(c(p.value))
-    )
-
-```

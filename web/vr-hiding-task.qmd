@@ -1,0 +1,42 @@
+---
+title: "VR Children hiding task reports"
+format: html
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+library(tidyverse)
+library(gt)
+here::i_am("web/vr-hiding-task.qmd")
+```
+
+```{r loading, message=FALSE, warning=FALSE}
+source(here::here("scripts/loading.R"))
+df_vr_all <- df_vr
+df_vr <- df_vr %>%
+  filter(difficulty > 3)
+```
+## Hiding task
+
+The kendall rank correlation was used due to the very low number of errors in both cases and ordinal nature fo the data. Visualisation is difficult due to the nature of the dataset. 
+
+```{r hiding task kendall}
+df_all %>%  
+  select(name, school, error_value, error_type, starts_with("plush_"), -plush_what, -plush_what_actor) %>%
+  pivot_longer(starts_with("plush_"), names_to = "hiding_task", values_to = "hiding_task_value") %>%
+  group_by(error_type, hiding_task) %>%
+  group_modify(~broom::tidy(cor.test(.$hiding_task_value, .$error_value, method = "kendall"))) %>%
+  select(estimate, statistic, p.value) %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value))) %>%
+  ungroup() %>%
+  gt() %>% 
+    tab_header(title = "Kendall rank correlation between error value from the VR and hiding task score",
+      subtitle = "Kendall correlation used due to many pairwise comparisons and ordinal data") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2) %>%
+    # add footnote corrected for mutliple comparisons to the header
+    tab_footnote(
+      footnote = "Corrected for multiple comparisons using FDR method",
+      locations = cells_column_labels(c(p.value))
+    )
+
+```
