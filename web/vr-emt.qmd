@@ -4,7 +4,7 @@ format: html
 ---
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)
 library(tidyverse)
 library(gt)
 here::i_am("web/vr-emt.qmd")
@@ -14,6 +14,10 @@ here::i_am("web/vr-emt.qmd")
 source(here::here("scripts/loading-children.R"))
 df_vr_all <- df_vr
 df_vr <- df_vr %>%
+  filter(difficulty > 3,
+  !(error_type %in% c("total_error", "incorrect_location_order")))
+
+df_all <- df_all %>%
   filter(difficulty > 3,
   !(error_type %in% c("total_error", "incorrect_location_order")))
 ```
@@ -32,13 +36,21 @@ df_vr_all %>%
   filter(difficulty == 3,
   error_type != "total_error") %>%
   count(error_type, error_value) %>%
-  pivot_wider(names_from = error_value, values_from = n, values_fill = 0)
+  pivot_wider(names_from = error_value, values_from = n, values_fill = 0) %>%
+  gt() %>%
+  tab_header(title = "Number of errors in the 3 item difficulty",
+      subtitle = "Separated by error type") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2)
 
 df_vr_all %>%
   filter(difficulty == 3,
   error_type != "total_error") %>%
   count(error_type, made_error) %>%
-  pivot_wider(names_from = made_error, values_from = n, values_fill = 0, names_prefix = "error_") 
+  pivot_wider(names_from = made_error, values_from = n, values_fill = 0, names_prefix = "error_") %>%
+  gt() %>%
+  tab_header(title = "Number of times participants made at least one error",
+      subtitle = "separated by error type") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2)
 ```
 
 As almost no children made any errors in the 3 item difficulty, we considered them more as a training trial, then a real trial. For example 
@@ -66,7 +78,7 @@ method = "kendall"))
 ## Descriptives
 
 ```{r}
-knitr::kable(head(df_vr))
+knitr::kable(head(df_vr, 3))
 ```
 ```{r}
 df_vr %>%
@@ -215,7 +227,7 @@ There are a few possible explanations
 
 Maximum points is 40 for the story repetition and 34 for the sentence repetition. Higher score is better.
 
-```{r story repetition score plot}
+```{r story repetition score plot, warning=FALSE}
 df_all %>%
   ggplot(aes(error_value, NR)) +
   geom_point() +
@@ -251,9 +263,27 @@ df_all %>%
     )
 ```
 
+```{r story repetition score separated by difficulty}
+df_all %>%
+  group_by(error_type, difficulty) %>%
+  group_modify(~broom::tidy(cor.test(.$NR, .$error_value, method = "spearman"))) %>%
+  select(estimate, statistic, p.value) %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value))) %>%
+  ungroup() %>%
+  gt() %>%
+    tab_header(title = "Correlation between error value and story repetition score",
+      subtitle = "Spearman correlation between error value and story repetition score for each error type") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2) %>%
+    # add footnote corrected for mutliple comparisons to the header
+    tab_footnote(
+      footnote = "Corrected for multiple comparisons using FDR method",
+      locations = cells_column_labels(vars(p.value))
+    )
+```
+
 ### Sentence repetition
 
-```{r sentence repetition score plot}
+```{r sentence repetition score plot, warning=FALSE}
 df_all %>%
   ggplot(aes(error_value, SR)) +
   geom_point() +
@@ -289,3 +319,20 @@ df_all %>%
     )
 ```
 
+```{r sentence repetition score separated by difficulty}
+df_all %>%
+  group_by(error_type, difficulty) %>%
+  group_modify(~broom::tidy(cor.test(.$SR, .$error_value, method = "spearman"))) %>%
+  select(estimate, statistic, p.value) %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value))) %>%
+  ungroup() %>%
+  gt() %>%
+    tab_header(title = "Correlation between error value and sentence repetition score",
+      subtitle = "Spearman correlation between error value and stencence repetition score for each error type") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2) %>%
+    # add footnote corrected for mutliple comparisons to the header
+    tab_footnote(
+      footnote = "Corrected for multiple comparisons using FDR method",
+      locations = cells_column_labels(c(p.value))
+    )
+```
