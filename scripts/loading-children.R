@@ -1,7 +1,7 @@
 library(readxl)
 library(tidyverse)
 library(here)
-i_am("scripts/loading.R")
+i_am("scripts/loading-children.R")
 
 rename_demographics <- function(df_input) {
   colnames(df_input)[1:7] <- c("name", "school", "gender",
