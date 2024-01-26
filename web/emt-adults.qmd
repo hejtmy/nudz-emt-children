@@ -1,0 +1,31 @@
+---
+title: "VR EMT and RRBANS results for adults"
+format: html
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)
+library(tidyverse)
+library(gt)
+here::i_am("web/vr-emt.qmd")
+```
+
+```{r data loading, results="hide"}
+source(here::here("scripts/loading-adults.R"))
+str(df_emt_adults)
+str(df_rbans)
+```
+
+```{r descriptives}
+df_emt_adults %>%
+    group_by(Environment, task_name, task_number) %>%
+    select(errors) %>%
+    report::report_table()
+```
+
+```{r emt plots}
+ggplot(df_emt_adults, aes(task_number, errors)) +
+    geom_jitter(width = 0.2, height = 0.1) +
+    geom_smooth(method = "lm") +
+    facet_grid(col = vars(task_name), rows = vars(Environment), scales = "free_y")
+```
