@@ -11,21 +11,31 @@ here::i_am("web/vr-emt.qmd")
 ```
 
 ```{r data loading, results="hide"}
-source(here::here("scripts/loading-adults.R"))
-str(df_emt_adults)
-str(df_rbans)
+source(here::here("scripts/loading-adults.R"), encoding = "UTF-8")
+```
+
+```{r participant descriptives}
 ```
 
 ```{r descriptives}
-df_emt_adults %>%
-    group_by(Environment, task_name, task_number) %>%
-    select(errors) %>%
-    report::report_table()
+ggplot(df_emt_adults, aes(Environment, relative_error_value)) +
+    geom_boxplot() +
+    facet_grid(rows = vars(error_type), cols =vars(difficulty))
 ```
 
+
 ```{r emt plots}
-ggplot(df_emt_adults, aes(task_number, errors)) +
+ggplot(df_emt_adults, aes(difficulty, relative_error_value)) +
     geom_jitter(width = 0.2, height = 0.1) +
     geom_smooth(method = "lm") +
-    facet_grid(col = vars(task_name), rows = vars(Environment), scales = "free_y")
+    facet_grid(col = vars(error_type), rows = vars(Environment), scales = "free_y")
+```
+
+
+```{r}
+df_emt_adults %>%
+  filter(Environment == "House") %>%
+  group_by(error_type, Environment, difficulty) %>%
+  group_modify(~broom::tidy(cor.test(.$RBANS.A.1, .$errors, method = "spearman"))) %>%
+  select(estimate, statistic, p.value)
 ```

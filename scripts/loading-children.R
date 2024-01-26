@@ -37,20 +37,22 @@ df_vr <- df_vr %>%
                         incorrect_location_order, total_error),
                names_to = "error_type",
                values_to = "error_value") %>%
-  mutate(relative_error_value = error_value/difficulty,
+  mutate(relative_error_value = error_value / difficulty,
          made_error = error_value > 0) %>%
     # if error type is total_error divide relative error by 4
     mutate(relative_error_value = case_when(error_type == "total_error" ~ relative_error_value/4,
                                             TRUE ~ relative_error_value))
 
 ## NR SR preparation -------
-df_nr <- read_excel(here("data/processed-data.xlsx"), sheet = 1, na=c("", "-"))
+df_nr <- read_excel(here("data/processed-data.xlsx"), 
+                    sheet = 1, na = c("", "-"))
 df_nr <- rename_demographics(df_nr)
 
 df_nr <- select(df_nr, 1:7, NR = `NR [40]`, SR = `SR [34]`)
 
 ## Hiding preparation -------
-df_hiding <- read_excel(here("data/processed-data.xlsx"), sheet = 6, na = c("", "-"))
+df_hiding <- read_excel(here("data/processed-data.xlsx"),
+                        sheet = 6, na = c("", "-"))
 df_hiding <- rename_demographics(df_hiding)
 colnames(df_hiding)[8:13] <- c(paste0(c("plush_"), c("what", "where", "order")),
   paste0(c("child_"), c("what", "where", "order")))
@@ -59,12 +61,12 @@ df_hiding <- select(df_hiding, name:child_order)
 
 df_hiding <- df_hiding %>%
   separate(plush_what, into = c("plush_what_target", "plush_what_actor"),
-    sep = "\\+", remove = FALSE, convert=TRUE) %>%
-  separate(child_what, into = c("child_what_target", "child_what_actor"), 
+    sep = "\\+", remove = FALSE, convert = TRUE) %>%
+  separate(child_what, into = c("child_what_target", "child_what_actor"),
     sep = "\\+", remove = FALSE, convert = TRUE)
 
 ## Merging it all together
 df_all <- df_vr %>%
   left_join(select(df_nr, name, school, NR, SR), by = c("name", "school")) %>%
-  left_join(select(df_hiding, name, school, plush_what:child_order), by = c("name", "school"))
-
+  left_join(select(df_hiding, name, school, plush_what:child_order),
+            by = c("name", "school"))
