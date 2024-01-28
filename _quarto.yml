@@ -2,13 +2,15 @@ project:
   type: website
 
 website:
-  title: "nudz-emt-children"
+  title: EMT Children 
   navbar:
     left:
       - href: index.qmd
         text: Home
-      - href: web/vr-emt.qmd
-        text: VR-EMT
+      - href: web/emt-children.qmd
+        text: EMT results children
+      - href: web/emt-adults.qmd
+        text: EMT results adults
       - about.qmd
 
 format:

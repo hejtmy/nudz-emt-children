@@ -7,11 +7,12 @@ format: html
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)
 library(tidyverse)
 library(gt)
-here::i_am("web/vr-emt.qmd")
+here::i_am("web/emt-children.qmd")
 ```
 
 ```{r loading, message=FALSE, warning=FALSE}
 source(here::here("scripts/loading-children.R"))
+
 df_vr_all <- df_vr
 df_vr <- df_vr %>%
   filter(difficulty > 3,
@@ -335,4 +336,49 @@ df_all %>%
       footnote = "Corrected for multiple comparisons using FDR method",
       locations = cells_column_labels(c(p.value))
     )
+```
+
+## Comparing adults in house
+
+```{r loading adults data}
+source(here::here("scripts/loading-adults.R"), encoding = "UTF-8")
+df_adults <- df_emt_adults %>%
+  filter(Environment == "House", difficulty == 5)
+```
+
+```{r merging children and adults data}
+df_combined <- df_adults %>%
+ select(error_type, error_value = errors, relative_error_value,
+        ID = bindingid) %>%
+ mutate(group = "Adults") %>%
+  bind_rows(df_vr %>%
+    filter(difficulty == 5, error_type != "selection") %>%
+    select(error_type, error_value, relative_error_value, ID = name) %>%
+    mutate(group = "Children", 
+            # replace inbcorrect object order in column error_type with incorrect location order)
+            error_type = case_match(error_type, 
+                    "incorrect_object_order" ~ "incorrect_order", .default = error_type)))
+```
+
+```{r comparison descriptives}
+df_combined %>%
+  group_by(group, error_type) %>%
+  summarise(report_val = str_glue("{round(mean(error_value), 3)} ({round(sd(error_value), 3)})")) %>%
+  pivot_wider(names_from = group, values_from = report_val) %>%
+  gt() %>%
+  tab_header(title = "Descriptives of error values in adults and children in different error types")
+```
+
+```{r comparison descriptives plot}
+```
+
+```{r comparison plots}
+df_combined %>%
+  ggplot(aes(group, error_value, fill = group)) +
+    geom_violin() +
+    geom_boxplot(width = 0.1) +
+    facet_wrap(~error_type, scales = "free") +
+    labs(x = "Group", y = "Error value", 
+            title = "Error value in adults and children in different error types")
+    
 ```
