@@ -1,1 +1,1 @@
-Sitemap: https://github.com/hejtmy/nudz-emt-children/sitemap.xml
+Sitemap: https://hejtmy.github.io/nudz-emt-children/sitemap.xml
