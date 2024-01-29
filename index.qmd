@@ -3,3 +3,5 @@ title: "Children memory EMT"
 ---
 
 This is a basic report site for the Memory tests with the children subjects.
+
+Planning to submit it to the [International Journal of Behavioral Development: Sage Journals](https://journals.sagepub.com/home/JBD)

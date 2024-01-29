@@ -73,14 +73,22 @@ ggplot(df_emt_adults, aes(RBANS.A.2, relative_error_value, color = Environment))
 
 ```{r}
 df_emt_adults %>%
-  filter(Environment == "House") %>%
+  #filter(Environment == "House") %>%
   pivot_longer(c(RBANS.A.1, RBANS.A.2), names_to = "RBANS", values_to = "RBANS_value") %>%
-  group_by(error_type, difficulty,RBANS) %>%
+  group_by(Environment, error_type, difficulty,RBANS) %>%
   group_modify(~broom::tidy(cor.test(.$RBANS_value, .$errors, method = "spearman"))) %>%
   summarise(result = str_glue("r = {round(estimate, 3)} (p = {apa_p(p.value)})")) %>%
   pivot_wider(names_from = RBANS, values_from = result) %>%
   ungroup() %>%
   gt() %>%
-  tab_header(title = "Correlation between RBANS and EMT",
+  tab_header(title = "Correlation between RBANS and EMT for house environment",
              subtitle = "Spearman's rho, not corrected for multiple comparisons")
+```
+
+
+```{r}
+df_emt_adults %>%
+  filter(error_type == "incorect_placement") %>%
+  group_by(difficulty) %>%
+  group_modify(~broom::tidy(t.test(.$errors ~ .$Environment)))
 ```
