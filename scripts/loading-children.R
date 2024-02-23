@@ -4,8 +4,9 @@ library(here)
 i_am("scripts/loading-children.R")
 
 rename_demographics <- function(df_input) {
-  colnames(df_input)[1:7] <- c("name", "school", "gender",
-    "age_year", "age_month", "birthday", "testing_date")
+  colnames(df_input)[1:7] <- c(
+    "name", "school", "gender", "age_year",
+    "age_month", "birthday", "testing_date")
   return(df_input)
 }
 
@@ -14,8 +15,8 @@ df_vr <- rename_demographics(df_vr)
 
 df_vr <- df_vr[, -c(30:33)] %>%
   mutate(age_months = age_month,
-    # relabel gender 1 to female and 0 to male
-        gender = case_match(gender,  c(0) ~ "male", c(1) ~ "female"))
+         # relabel gender 1 to female and 0 to male
+         gender = case_match(gender,  c(0) ~ "male", c(1) ~ "female"))
 
 df_vr <- df_vr %>%
   select(-contains("all"), -(contains(","))) %>%
@@ -39,12 +40,14 @@ df_vr <- df_vr %>%
                values_to = "error_value") %>%
   mutate(relative_error_value = error_value / difficulty,
          made_error = error_value > 0) %>%
-    # if error type is total_error divide relative error by 4
-    mutate(relative_error_value = case_when(error_type == "total_error" ~ relative_error_value/4,
-                                            TRUE ~ relative_error_value))
+  # if error type is total_error divide relative error by 4
+  mutate(relative_error_value = case_when(error_type == "total_error" ~ relative_error_value/4,
+                                          TRUE ~ relative_error_value),
+         relative_correct = 1 - relative_error_value)
+View(df_vr)
 
 ## NR SR preparation -------
-df_nr <- read_excel(here("data/processed-data.xlsx"), 
+df_nr <- read_excel(here("data/processed-data.xlsx"),
                     sheet = 1, na = c("", "-"))
 df_nr <- rename_demographics(df_nr)
 
@@ -61,9 +64,9 @@ df_hiding <- select(df_hiding, name:child_order)
 
 df_hiding <- df_hiding %>%
   separate(plush_what, into = c("plush_what_target", "plush_what_actor"),
-    sep = "\\+", remove = FALSE, convert = TRUE) %>%
+           sep = "\\+", remove = FALSE, convert = TRUE) %>%
   separate(child_what, into = c("child_what_target", "child_what_actor"),
-    sep = "\\+", remove = FALSE, convert = TRUE)
+           sep = "\\+", remove = FALSE, convert = TRUE)
 
 ## Merging it all together
 df_all <- df_vr %>%
