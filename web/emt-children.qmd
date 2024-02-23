@@ -11,50 +11,16 @@ here::i_am("web/emt-children.qmd")
 ```
 
 ```{r loading, message=FALSE, warning=FALSE}
+# loads df_vr and df_all dataframes
 source(here::here("scripts/loading-children.R"))
 
 df_vr_all <- df_vr
 df_vr <- df_vr %>%
-  filter(difficulty > 3,
-  !(error_type %in% c("total_error", "incorrect_location_order")))
+  filter(!(error_type %in% c("total_error", "incorrect_location_order")))
 
 df_all <- df_all %>%
-  filter(difficulty > 3,
-  !(error_type %in% c("total_error", "incorrect_location_order")))
+  filter(!(error_type %in% c("total_error", "incorrect_location_order")))
 ```
-
-## Removig the 3 item difficulty
-```{r}
-df_vr_all %>%
-  filter(difficulty == 3,
-  error_type != "total_error") %>%
-  ggplot(aes(error_value)) +
-    geom_histogram(binwidth = 1) +
-    scale_x_binned(breaks = seq(0, 3, 1)) +
-    facet_wrap(~error_type)
-
-df_vr_all %>%
-  filter(difficulty == 3,
-  error_type != "total_error") %>%
-  count(error_type, error_value) %>%
-  pivot_wider(names_from = error_value, values_from = n, values_fill = 0) %>%
-  gt() %>%
-  tab_header(title = "Number of errors in the 3 item difficulty",
-      subtitle = "Separated by error type") %>%
-    fmt_number(columns = where(is.numeric), decimals = 2)
-
-df_vr_all %>%
-  filter(difficulty == 3,
-  error_type != "total_error") %>%
-  count(error_type, made_error) %>%
-  pivot_wider(names_from = made_error, values_from = n, values_fill = 0, names_prefix = "error_") %>%
-  gt() %>%
-  tab_header(title = "Number of times participants made at least one error",
-      subtitle = "separated by error type") %>%
-    fmt_number(columns = where(is.numeric), decimals = 2)
-```
-
-As almost no children made any errors in the 3 item difficulty, we considered them more as a training trial, then a real trial. For example 
 
 ### Removing the object location error
 
@@ -76,11 +42,22 @@ report::report(cor.test(df_location_object_error$incorrect_location_order, df_lo
 method = "kendall"))
 ```
 
+```{r adding total error}
+df_vr <- df_vr %>%
+  group_by(error_type, name, age_month) %>%
+  summarise(all_trials_error = sum(error_value),
+            all_trials_avg_relative_error = sum(relative_error_value)/3,
+            all_trials_avg_relative_correct = 1 - all_trials_avg_relative_error) %>%
+  ungroup() %>%
+  right_join(df_vr, by = c("name", "age_month", "error_type"))
+```
+
 ## Descriptives
 
 ```{r}
 knitr::kable(head(df_vr, 3))
 ```
+
 ```{r}
 df_vr %>%
   select(name, age_months, gender) %>%
@@ -121,24 +98,27 @@ The errors come in four different types:
 ```{r error descriptives, echo = FALSE, message = FALSE}
 df_error_desc <- df_vr %>%
   group_by(difficulty, error_type) %>%
-  summarise(mean_error = mean(error_value), 
-            sd_error = sd(error_value),
-            sd_error_mean = sd(error_value) / sqrt(n()),
-            min = min(error_value),
-            max = max(error_value),
-            median = median(error_value))
+  summarise(across(error_value, .fns = list(mean = mean, sd = sd, min = min, 
+                                          max = max, median = median,
+                                          sd_mean = ~sd(.x)/sqrt(n())),
+                                          .names = "{.fn}"))
 
 df_rel_error_desc <- df_vr %>%
   group_by(difficulty, error_type) %>%
-  summarise(mean_error = mean(relative_error_value), 
-            sd_error = sd(relative_error_value),
-            sd_error_mean = sd(relative_error_value) / sqrt(n()),
-            min = min(relative_error_value),
-            max = max(relative_error_value),
-            median = median(relative_error_value))
+  summarise(across(relative_error_value, list(mean = mean, sd = sd, min = min, 
+                                          max = max, median = median,
+                                          sd_mean = ~sd(.x)/sqrt(n())),
+                                          .names = "{.fn}"))
+
+df_rel_corr_desc <- df_vr %>%
+  group_by(difficulty, error_type) %>%
+  summarise(across(relative_correct, list(mean = mean, sd = sd, min = min, 
+                                          max = max, median = median,
+                                          sd_mean = ~sd(.x)/sqrt(n())),
+                                          .names = "{.fn}"))
 
 df_error_desc %>%
-  select(-sd_error_mean) %>%
+  select(-sd_mean) %>%
   gt() %>%
   tab_header(title = "Descriptives of error values in different difficulties and error types") %>%
   fmt_number(columns = where(is.numeric), decimals = 2)
@@ -146,18 +126,20 @@ df_error_desc %>%
 
 ```{r error descriptives plot}
 df_error_desc %>%
-  ggplot(aes(difficulty, mean_error, fill = error_type)) +
+  ggplot(aes(difficulty, mean, fill = error_type)) +
   geom_col(position = "dodge") +
-  geom_errorbar(aes(ymin = mean_error - sd_error_mean, ymax = mean_error + sd_error_mean), 
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd_mean), 
                 position = position_dodge(width = 0.9), width = 0.25) +
-  labs(x = "Difficulty", y = "Mean error value", 
-    title = "Mean error values in different difficulties and error types") 
+  labs(x = "Difficulty", y = "Mean accuracy value", 
+       title = "Mean accuracy values in different difficulties and error types")
 ```
+
 ### Relative error
-As there is a difference in the potential number of errors possible at different difficulties, we also calculated the relative error value (error / difficulty). So the number 1 means the maximum number of errors possible at that difficulty.
+
+As there is a difference in the potential number of errors possible at different difficulties, we also calculated the relative error value (error / difficulty) and relative accuracy (1- relative error). For the relative accuracy, the number 1 means the best possible performance.
 
 ```{r error relative descriptives plot}
-df_rel_error_desc %>%
+df_rel_corr_desc %>%
   ggplot(aes(error_type, mean_error, fill = factor(difficulty))) +
   geom_col(position = "dodge") +
   geom_errorbar(aes(ymin = mean_error - sd_error_mean, ymax = mean_error + sd_error_mean), 
@@ -289,9 +271,9 @@ df_all %>%
   ggplot(aes(error_value, SR)) +
   geom_point() +
     geom_smooth(method = "lm") +
-facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free") + 
-  labs(x = "Error value", y = "Stentence repetition score", 
-            title = "Correlation between error value and sentence repetition score. Split by difficulty")
+  facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free") + 
+    labs(x = "Error value", y = "Stentence repetition score", 
+              title = "Correlation between error value and sentence repetition score. Split by difficulty")
 
 df_all %>%
   ggplot(aes(error_value, SR)) +
