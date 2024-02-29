@@ -11,6 +11,7 @@ df_emt_adults <- read.table(here("data/df_emt_adults.csv"),
 df_emt_adults <- df_emt_adults %>%
   rename("Age" = "Věk", "Technical_education" = "Tech..Vz.",
          "Gender" = "Pohlaví")
+
 df_emt_adults <- df_emt_adults %>%
   # relabel Gender "zena" is "female"
   mutate(Gender = case_when(Gender == "žena" ~ "Female",
@@ -27,6 +28,7 @@ df_emt_adults <- df_emt_adults %>%
   readr::type_convert() %>%
   mutate(relative_error_value = errors / difficulty,
          made_error = relative_error_value > 0) %>%
+  mutate(relative_correct = 1 - relative_error_value) %>%
   mutate(error_type = case_when(error_type == "por" ~ "incorrect_order",
                                 error_type == "poz" ~ "incorect_placement"))
 
