@@ -20,4 +20,4 @@ write.table(df_rbans_a, "data/df_rbans_a.csv", row.names = FALSE, sep = ";")
 
 ## Senior results
 drive_download(file = as_id("1068tUCXQc2ZgBH7K_q7LBGHlEC-xHYPS"),
-               path = "data/senior-data.xlsx")
+               path = "data/senior-data.xlsx", overwrite = TRUE)

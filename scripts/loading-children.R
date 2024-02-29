@@ -33,7 +33,7 @@ df_vr <- df_vr %>%
                                 error_type == "LOE" ~ "incorrect_location_order")) %>%
   pivot_wider(names_from = "error_type", values_from = "error_value") %>%
   mutate(total_error = selection + incorect_placement +
-                       incorrect_object_order + incorrect_location_order) %>%
+           incorrect_object_order + incorrect_location_order) %>%
   pivot_longer(cols = c(selection, incorect_placement, incorrect_object_order,
                         incorrect_location_order, total_error),
                names_to = "error_type",
@@ -49,7 +49,6 @@ df_vr <- df_vr %>%
 df_nr <- read_excel(here("data/processed-data.xlsx"),
                     sheet = 1, na = c("", "-"))
 df_nr <- rename_demographics(df_nr)
-
 df_nr <- select(df_nr, 1:7, NR = `NR [40]`, SR = `SR [34]`)
 
 ## Hiding preparation -------
