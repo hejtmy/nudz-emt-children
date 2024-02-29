@@ -28,9 +28,13 @@ df_emt_adults %>%
 
 ## Participant descriptives
 
-```{r participant descriptives}
-report_participants(df_emt_adults)
+```{r participant descriptives, results="asis"}
+df_single <- df_emt_adults %>%
+  group_by(ID.x) %>%
+  slice_head(n=1)
 ```
+
+A total of `r n_distinct(df_single$ID.x)` participants were included in the study. The mean age was `r mean(df_single$Age.x)` years (SD = `r sd(df_single$Age.x)`).
 
 ```{r descriptives}
 df_emt_adults %>%
@@ -44,29 +48,42 @@ df_emt_adults %>%
 ```
 
 ```{r descriptives plot}
-ggplot(df_emt_adults, aes(relative_error_value, fill = Environment)) +
+ggplot(df_emt_adults, aes(errors, fill = Environment)) +
   geom_histogram(position = position_dodge(), binwidth = 0.1) +
   geom_density(alpha = 0.2) +
   facet_grid(rows = vars(error_type), cols = vars(difficulty), scales = "free_x")
 ```
 
+```{r relative accuracy value}
+ggplot(df_emt_adults, aes(difficulty, relative_correct)) +
+  geom_jitter(width = 0.25, height = 0) +
+  geom_violin(aes(group = difficulty, fill = difficulty), alpha = 0.2) +
+  geom_smooth(method = "lm") +
+  facet_grid(rows = vars(error_type), cols=vars(Environment), scales = "free_y")
+```
+
 ## Correlation between performance and RBANS
 
 ```{r RBANS A 1 emt plots}
-ggplot(df_emt_adults, aes(RBANS.A.1, relative_error_value, color = Environment)) +
-  geom_jitter(width = 0.2, height = 0.1) +
-  geom_smooth(method = "lm") +
+ggplot(df_emt_adults, aes(RBANS.A.1, relative_correct, color = Environment)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  ylim(0, 1) +
   facet_grid(col = vars(difficulty), rows = vars(error_type), scales = "free_y")  +
-  labs(x = "RBANS A 1", y = "Relative error value", title = "Correlation between RBANS 1 and EMT") +
+  labs(x = "RBANS A 1", y = "Relative accuracy (1 is best)",
+       title = "Correlation between RBANS 1 and EMT") +
+  theme_apa() +
   theme(legend.position = "bottom", text = element_text(size=20))
 ```
 
 ```{r RBANS A 2 emt plots}
-ggplot(df_emt_adults, aes(RBANS.A.2, relative_error_value, color = Environment)) +
-  geom_jitter(width = 0.2, height = 0.1) +
+ggplot(df_emt_adults, aes(RBANS.A.2, relative_correct, color = Environment)) +
+  geom_point() +
+  ylim(0, 1) +
   geom_smooth(method = "lm") +
   facet_grid(col = vars(difficulty), rows = vars(error_type), scales = "free_y")  +
-  labs(x = "RBANS A 2", y = "Relative error value", title = "Correlation between RBANS 2 and EMT") +
+  labs(x = "RBANS A 2", y = "Relative error value", 
+       title = "Correlation between RBANS 2 and Relative accuracy in EMT") +
   theme_apa() +
   theme(legend.position = "bottom", text = element_text(size=20))
 ```
@@ -75,7 +92,7 @@ ggplot(df_emt_adults, aes(RBANS.A.2, relative_error_value, color = Environment))
 df_emt_adults %>%
   #filter(Environment == "House") %>%
   pivot_longer(c(RBANS.A.1, RBANS.A.2), names_to = "RBANS", values_to = "RBANS_value") %>%
-  group_by(Environment, error_type, difficulty,RBANS) %>%
+  group_by(Environment, error_type, difficulty, RBANS) %>%
   group_modify(~broom::tidy(cor.test(.$RBANS_value, .$errors, method = "spearman"))) %>%
   summarise(result = str_glue("r = {round(estimate, 3)} (p = {apa_p(p.value)})")) %>%
   pivot_wider(names_from = RBANS, values_from = result) %>%
