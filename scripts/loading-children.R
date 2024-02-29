@@ -44,7 +44,6 @@ df_vr <- df_vr %>%
   mutate(relative_error_value = case_when(error_type == "total_error" ~ relative_error_value/4,
                                           TRUE ~ relative_error_value),
          relative_correct = 1 - relative_error_value)
-View(df_vr)
 
 ## NR SR preparation -------
 df_nr <- read_excel(here("data/processed-data.xlsx"),
