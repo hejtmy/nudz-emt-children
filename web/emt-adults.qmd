@@ -105,7 +105,7 @@ df_emt_adults %>%
 
 ```{r}
 df_emt_adults %>%
-  filter(error_type == "incorect_placement") %>%
+  filter(error_type == "incorrect_placement") %>%
   group_by(difficulty) %>%
   group_modify(~broom::tidy(t.test(.$errors ~ .$Environment)))
 ```

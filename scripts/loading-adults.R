@@ -30,7 +30,7 @@ df_emt_adults <- df_emt_adults %>%
          made_error = relative_error_value > 0) %>%
   mutate(relative_correct = 1 - relative_error_value) %>%
   mutate(error_type = case_when(error_type == "por" ~ "incorrect_order",
-                                error_type == "poz" ~ "incorect_placement"))
+                                error_type == "poz" ~ "incorrect_placement"))
 
 df_rbans <- df_rbans %>%
   mutate(bindingid = gsub("_", "", ID)) %>%

@@ -402,6 +402,27 @@ df_combined %>%
 
 ```{r loading seniors}
 source(here::here("scripts/loading-seniors.R"), encoding = "UTF-8")
-df_adults <- df_emt_adults %>%
-  filter(Environment == "House", difficulty == 5)
+df_seniors <- df_seniors %>%
+  filter(Form == "desktop", difficulty == 3)
+```
+
+```{r}
+df_children_seniors <- df_seniors %>%
+ select(error_type = measure, error_value = value, ID) %>%
+ filter(error_type %in% c("incorrect_object_order", "incorrect_placement", "selection")) %>%
+ mutate(group = "Seniors") %>%
+  bind_rows(df_vr %>%
+    filter(difficulty == 3) %>%
+    select(error_type, error_value, ID = name) %>%
+    mutate(group = "Children"))
+```
+
+```{r}
+df_children_seniors %>%
+  group_by(group, error_type) %>%
+  summarise(report_val = str_glue("{round(mean(error_value), 3)} ({round(sd(error_value), 3)})")) %>%
+  pivot_wider(names_from = group, values_from = report_val) %>%
+  gt() %>%
+    tab_header(title = "Descriptives of error values in adults and children in 3 item difficulty",
+      subtitle = "Mean (SD)")
 ```

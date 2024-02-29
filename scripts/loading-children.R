@@ -28,13 +28,13 @@ df_vr <- df_vr %>%
   mutate(difficulty = as.numeric(difficulty)) %>%
   # replace CO with selection_error
   mutate(error_type = case_when(error_type == "CO" ~ "selection",
-                                error_type == "OPE" ~ "incorect_placement",
+                                error_type == "OPE" ~ "incorrect_placement",
                                 error_type == "OOE" ~ "incorrect_object_order",
                                 error_type == "LOE" ~ "incorrect_location_order")) %>%
   pivot_wider(names_from = "error_type", values_from = "error_value") %>%
-  mutate(total_error = selection + incorect_placement +
+  mutate(total_error = selection + incorrect_placement +
            incorrect_object_order + incorrect_location_order) %>%
-  pivot_longer(cols = c(selection, incorect_placement, incorrect_object_order,
+  pivot_longer(cols = c(selection, incorrect_placement, incorrect_object_order,
                         incorrect_location_order, total_error),
                names_to = "error_type",
                values_to = "error_value") %>%
