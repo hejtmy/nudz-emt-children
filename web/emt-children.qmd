@@ -7,6 +7,7 @@ format: html
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)
 library(tidyverse)
 library(gt)
+library(report)
 here::i_am("web/emt-children.qmd")
 ```
 
@@ -75,10 +76,6 @@ method = "kendall"))
 ```
 
 ## Descriptives
-
-```{r}
-knitr::kable(head(df_vr, 3))
-```
 
 ```{r}
 df_vr %>%
@@ -150,12 +147,12 @@ df_error_desc %>%
   geom_errorbar(aes(ymin = mean - sd_mean, ymax = mean + sd_mean), 
                 position = position_dodge(width = 0.9), width = 0.25) +
   labs(x = "Difficulty", y = "Mean error value",
-       title = "Mean accuracy values in different difficulties and error types")
+       title = "Mean error values in different difficulties and error types")
 ```
 
 ### Relative accuracy/error
 
-As there is a difference in the potential number of errors possible at different difficulties, we also calculated the relative relative accuracy (1 - errors/max posibble errors), so the number 1 means the best possible performance.
+As there is a difference in the potential number of errors possible at different difficulties, we also calculated the relative error (errors/max possible errors) **relative accuracy** (1 - errors/max posibble errors). So the number 1 in relative accuracy means the best possible performance.
 
 ```{r error relative descriptives plot}
 df_rel_corr_desc %>%
@@ -182,6 +179,7 @@ Just to remind, if one location is incorrect, then more locations will be incorr
 ggplot(df_vr, aes(age_months, relative_correct, color = gender)) +
   geom_point() +
   facet_grid(rows = vars(difficulty), cols = vars(error_type), scales = "free_y") +
+  geom_hline(yintercept = 1.05, linetype = "dashed") +
   geom_smooth(method = "lm") +
   labs(x = "Age (months)", y = "Relative accuracy (1 - error / difficulty)", 
        title = "Relative accuracy in individual error types and difficulties")
@@ -202,12 +200,12 @@ df_vr %>%
 ```
 
 ```{r, results = "asis"}
-lmer_rel_age_diff <- lmerTest::lmer(relative_correct ~ age_months + difficulty + (1|name), data = df_vr)
+lmer_rel_age_diff <- lmerTest::lmer(relative_correct ~ age_months + difficulty + error_type + (1|name), data = df_vr)
 report(lmer_rel_age_diff)
 ```
 
 :::{.callout-note}
-There are a few possible explanations
+There are a few possible explanations of the effect of age being reversed.
 
 - The data are missing the time component, so we do not kno how long it actually took the children to answer or how much they moved in the environemnt
 
@@ -218,15 +216,21 @@ There are a few possible explanations
 
 ### Total error
 
+We then looked at the mean relative accuracy in all trials as the effect of age.
+
 ```{r}
 df_vr %>%
-  distinct(name, age_months, all_trials_avg_relative_correct, error_type, gender) %>%
-  ggplot(aes(age_months, all_trials_avg_relative_correct, color = gender)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  facet_wrap(~error_type, scales = "free") +
-  labs(x = "Age (months)", y = "Relative accuracy value (1 - error / difficulty)", 
-       title = "Relative accuracy in all trials")
+  group_by(name, age_months, error_type) %>%
+  slice_head(n = 1)
+```
+
+```{r, results = "asis"}
+glm_rel_age_diff <- df_vr %>%
+  group_by(name, age_months, error_type) %>%
+  slice_head(n = 1) %>%
+  ungroup() %>%
+  glm(all_trials_avg_relative_correct ~ age_months*gender + difficulty + error_type, data = .)
+report(glm_rel_age_diff)
 ```
 
 ## Correlation with other metrics
@@ -349,6 +353,16 @@ df_all %>%
     )
 ```
 
+
+```{r lmer model sentence repetition}
+lmerTest::lmer(relative_correct ~ error_type*SR + difficulty + (1|name), data = df_all) %>%
+  summary()
+
+lmerTest::lmer(relative_correct ~ error_type*NR + difficulty + (1|name), data = df_all) %>%
+  summary()
+
+```
+
 ## Comparing adults in house
 
 ```{r loading adults data}
@@ -366,7 +380,6 @@ df_combined <- df_adults %>%
     filter(difficulty == 5, error_type != "selection") %>%
     select(error_type, error_value, relative_error_value, ID = name) %>%
     mutate(group = "Children", 
-            # replace inbcorrect object order in column error_type with incorrect location order)
             error_type = case_match(error_type, 
                     "incorrect_object_order" ~ "incorrect_order", .default = error_type)))
 ```
@@ -377,14 +390,15 @@ df_combined %>%
   summarise(report_val = str_glue("{round(mean(error_value), 3)} ({round(sd(error_value), 3)})")) %>%
   pivot_wider(names_from = group, values_from = report_val) %>%
   gt() %>%
-    tab_header(title = "Descriptives of error values in adults and children in different error types",
-      subtitle = "Mean (SD)")
+    tab_header(title = "Descriptives of error values in adults and children in different error types for 5 item difficulty",
+              subtitle = "Mean (SD)")
 ```
 
 ```{r comparison adults children plots}
 df_combined %>%
   ggplot(aes(group, error_value, fill = group)) +
     geom_boxplot() +
+    geom_jitter(height = 0.1, width = 0.1) +
     facet_wrap(~error_type, scales = "free") +
     labs(x = "Group", y = "Error value", 
             title = "Error value in adults and children in different error types")
@@ -398,15 +412,14 @@ df_combined %>%
   knitr::kable()
 ```
 
-## Loading seniors
+## Comparing seniors
 
 ```{r loading seniors}
 source(here::here("scripts/loading-seniors.R"), encoding = "UTF-8")
+df_seniors_all <- df_seniors
 df_seniors <- df_seniors %>%
   filter(Form == "desktop", difficulty == 3)
-```
 
-```{r}
 df_children_seniors <- df_seniors %>%
  select(error_type = measure, error_value = value, ID) %>%
  filter(error_type %in% c("incorrect_object_order", "incorrect_placement", "selection")) %>%
@@ -417,12 +430,42 @@ df_children_seniors <- df_seniors %>%
     mutate(group = "Children"))
 ```
 
-```{r}
+```{r seniors vr and desktop situation}
+df_seniors_all %>%
+  filter(measure == "Time", !is.na(value)) %>%
+  count(Form, difficulty) %>%
+  group_by(Form) %>%
+  gt() %>%
+    tab_header(title = "Number of completed trials in different difficulties and forms")
+```
+
+Seniors had only 3 items difficulty on desktop, so we will compare them to children in the same difficulty.
+
+```{r seniors and children descriptives}
 df_children_seniors %>%
   group_by(group, error_type) %>%
   summarise(report_val = str_glue("{round(mean(error_value), 3)} ({round(sd(error_value), 3)})")) %>%
   pivot_wider(names_from = group, values_from = report_val) %>%
   gt() %>%
-    tab_header(title = "Descriptives of error values in adults and children in 3 item difficulty",
-      subtitle = "Mean (SD)")
+    tab_header(title = "Descriptives of error values for seniors and children in 3 item difficulty",
+    subtitle = "Mean (SD)")
+```
+
+
+```{r seniors and children plots}
+df_children_seniors %>%
+  ggplot(aes(group, error_value, fill = group)) +
+    geom_boxplot() +
+    geom_jitter(height = 0.1, width = 0.1) +
+    facet_wrap(~error_type, scales = "free") +
+    labs(x = "Group", y = "Error value", 
+            title = "Error value in adults and children in different error types")
+```
+
+```{r comparing seniors and children}
+df_children_seniors %>%
+  group_by(error_type) %>%
+  group_modify(~broom::tidy(t.test(error_value ~ group, data = .))) %>%
+  select(-method, -alternative) %>%
+  knitr::kable()
 ```

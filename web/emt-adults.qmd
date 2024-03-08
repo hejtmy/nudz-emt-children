@@ -64,13 +64,19 @@ ggplot(df_emt_adults, aes(difficulty, relative_correct)) +
 
 ## Correlation between performance and RBANS
 
+:::{.callout-tip}
+RBANS A.1 - seznam slov / word memory
+RBANS A.2 - povídka / story memory
+:::
+
 ```{r RBANS A 1 emt plots}
 ggplot(df_emt_adults, aes(RBANS.A.1, relative_correct, color = Environment)) +
   geom_point() +
   geom_smooth(method = "lm") + 
   ylim(0, 1) +
   facet_grid(col = vars(difficulty), rows = vars(error_type), scales = "free_y")  +
-  labs(x = "RBANS A 1", y = "Relative accuracy (1 is best)",
+  labs(x = "RBANS A 1", 
+       y = "Relative accuracy (1 is best)",
        title = "Correlation between RBANS 1 and EMT") +
   theme_apa() +
   theme(legend.position = "bottom", text = element_text(size=20))
@@ -82,8 +88,35 @@ ggplot(df_emt_adults, aes(RBANS.A.2, relative_correct, color = Environment)) +
   ylim(0, 1) +
   geom_smooth(method = "lm") +
   facet_grid(col = vars(difficulty), rows = vars(error_type), scales = "free_y")  +
-  labs(x = "RBANS A 2", y = "Relative error value", 
-       title = "Correlation between RBANS 2 and Relative accuracy in EMT") +
+  labs(x = "RBANS A 2",
+       y = "Relative accuracy (1 is best)",
+       title = "Correlation between RBANS 2 and Relative accuracy in EMT separated by difficulty") +
+  theme_apa() +
+  theme(legend.position = "bottom", text = element_text(size=20))
+```
+
+```{r RBANS A 1 emt correlation}
+ggplot(df_emt_adults, aes(RBANS.A.1, relative_correct, color = Environment)) +
+  geom_point() +
+  ylim(0, 1) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~error_type, scales = "free_y")  +
+  labs(x = "RBANS A 2",
+       y = "Relative accuracy (1 is best)",
+       title = "Correlation between RBANS 1 and Relative accuracy in EMT for all difficulties") +
+  theme_apa() +
+  theme(legend.position = "bottom", text = element_text(size=20))
+```
+
+```{r RBANS A 1 emt correlation}
+ggplot(df_emt_adults, aes(RBANS.A.2, relative_correct, color = Environment)) +
+  geom_point() +
+  ylim(0, 1) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~error_type, scales = "free_y")  +
+  labs(x = "RBANS A 2",
+       y = "Relative accuracy value",
+       title = "Correlation between RBANS 2 and Relative accuracy in EMT for all difficulties") +
   theme_apa() +
   theme(legend.position = "bottom", text = element_text(size=20))
 ```
@@ -91,14 +124,15 @@ ggplot(df_emt_adults, aes(RBANS.A.2, relative_correct, color = Environment)) +
 ```{r}
 df_emt_adults %>%
   #filter(Environment == "House") %>%
-  pivot_longer(c(RBANS.A.1, RBANS.A.2), names_to = "RBANS", values_to = "RBANS_value") %>%
-  group_by(Environment, error_type, difficulty, RBANS) %>%
-  group_modify(~broom::tidy(cor.test(.$RBANS_value, .$errors, method = "spearman"))) %>%
+  pivot_longer(c(RBANS.A.1, RBANS.A.2), names_to = "RBANS", 
+               values_to = "RBANS_value") %>%
+  group_by(Environment, error_type, RBANS) %>%
+  group_modify(~broom::tidy(cor.test(.$RBANS_value, .$relative_correct, method = "spearman"))) %>%
   summarise(result = str_glue("r = {round(estimate, 3)} (p = {apa_p(p.value)})")) %>%
   pivot_wider(names_from = RBANS, values_from = result) %>%
   ungroup() %>%
   gt() %>%
-  tab_header(title = "Correlation between RBANS and EMT for house environment",
+  tab_header(title = "Correlation between RBANS and EMT for house environment for all difficulties",
              subtitle = "Spearman's rho, not corrected for multiple comparisons")
 ```
 
@@ -107,5 +141,10 @@ df_emt_adults %>%
 df_emt_adults %>%
   filter(error_type == "incorrect_placement") %>%
   group_by(difficulty) %>%
-  group_modify(~broom::tidy(t.test(.$errors ~ .$Environment)))
+    group_modify(~broom::tidy(t.test(.$errors ~ .$Environment))) %>%
+    ungroup() %>%
+    select(difficulty, estimate, p.value) %>%
+    gt() %>%
+    tab_header(title = "T-test for incorrect placement errors between environments",
+             subtitle = "Not corrected for multiple comparisons")
 ```
