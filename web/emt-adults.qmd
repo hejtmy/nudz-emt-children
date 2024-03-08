@@ -108,7 +108,7 @@ ggplot(df_emt_adults, aes(RBANS.A.1, relative_correct, color = Environment)) +
   theme(legend.position = "bottom", text = element_text(size=20))
 ```
 
-```{r RBANS A 1 emt correlation}
+```{r RBANS A 2 emt correlation}
 ggplot(df_emt_adults, aes(RBANS.A.2, relative_correct, color = Environment)) +
   geom_point() +
   ylim(0, 1) +
