@@ -1,0 +1,109 @@
+---
+title: "EMT manuscript"
+format: html
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)
+library(tidyverse)
+library(gt)
+library(report)
+library(patchwork)
+here::i_am("web/emt-children.qmd")
+source(here::here("scripts/prepare-manuscript-data.R"))
+```
+
+Popis vzorku + distribuce veku vs. pohlaví (počty dětí v obtížnostech)
+
+
+```{r}
+df_single <- df_all %>%
+  group_by(name, school, age_month, gender) %>%
+  slice_head(n = 1) %>%
+  ungroup()
+```
+
+```{r}
+df_vr %>%
+  select(difficulty, name, school) %>%
+  distinct() %>%
+  group_by(difficulty) %>%
+  count()
+```
+
+```{r}
+df_single %>%
+  group_by(gender) %>%
+  summarise(n = n(), mean_age = mean(age_month), sd_age = sd(age_month), min_age = min(age_month), max_age = max(age_month)) %>%
+  gt() %>%
+  tab_header(title = "Demographics") %>%
+  fmt_number(columns = c("mean_age", "sd_age"), decimals = 3) %>%
+  tab_spanner(label = "Age", columns = c("mean_age", "sd_age", "min_age", "max_age")) %>%
+  # relabel variable names mean and sd and min to Mean, SD, Min, Max
+  cols_label(mean_age = "Mean",
+              sd_age = "SD",
+              min_age = "Min",
+              max_age = "Max")
+```
+
+A total of `r nrow(df_single)` children participated in the study. Age demographics can be seen in Tab XY. Children were recruited from `r n_distinct(df_single$school)` schools.
+
+All children completed all trials. 
+
+## Average error demographics
+
+```{r}
+plt_raw_error <- df_vr %>%
+  select(difficulty, relative_correct, error_type, error_value) %>%
+  ggplot(aes(x = as.factor(difficulty), y = error_value, fill = error_type)) + geom_boxplot() +
+  facet_wrap(~error_type)
+
+plt_relative_correct <- df_vr %>%
+  select(difficulty, relative_correct, error_type, error_value) %>%
+  ggplot(aes(x = as.factor(difficulty), y = relative_correct, fill = error_type)) + 
+    geom_boxplot() +
+  facet_wrap(~error_type)
+
+plt_raw_error / plt_relative_correct
+```
+
+Ukázka Průměrné počty chyb dle náročnosti úkolů 3,4,5 a podmínek - zobrazit a popsat:
+
+(Vysvětlení typu chyb a případných rozdílů v hodnocení) + Korelace mezi object and location order error a proč analyzujeme jen jedno
+The Kendall's rank correlation tau between
+df_location_object_error$incorrect_location_order and
+df_location_object_error$incorrect_object_order is positive, statistically
+significant, and very large (tau = 1.00, z = 12.55, p < .001)
+
+
+
+Vysvětlit převod na Relative accuracy/error - k tomu statistika
+As there is a difference in the potential number of errors possible at different difficulties, we also calculated the relative error (errors/max possible errors) relative accuracy (1 - errors/max posibble errors). So the number 1 in relative accuracy means the best possible performance.
+
+efekt náročnosti je viditelný u všech parametrů (zvyšující se počet chyb) - doplnit statistiku 
+efekt obtížnosti u jednotlivých podmínek (typ chyby)? - diskutovat, proč nejsou přímo srovnatelné.
+
+efekt věku na výkon
+nelze posoudit u dětí (nevyváženo u pohlaví), pravděpodobně nevychází v důsledku nerovnoměrné distribuce věku a pohlaví:
+The effect of age months is statistically non-significant and negative (beta = -4.00e-03, 95% CI [-9.72e-03, 1.72e-03], t(416) = -1.37, p = 0.170; Std. beta = -0.07, 95% CI [-0.17, 0.03])
+Obrázek korelace s věkem/pohlaví nedávat!
+ale lze dokladovat srovnáním děti vs. dospělí u 5 objektů - různé  typy chyb
+připravit i graf a skupinovou statistiku srovnávající Relative accuracy
+ukázat i všechny náročnosti? děti 3,4,5, dospělí -5,7,9?
+
+
+korelace se standardními testy:
+děti (Sentence repetition a Story Telling):
+kumulativní skóry (grafy a statistika) pro:
+incorrect_object_order: koreluje se Story r = 0.29	p .002, nesignifikantně s Sentence r=0,16, p .069
+incorrect_placement:  koreluje se Story r = 0.18	p .057, nesignifikantně s Sentence r=0,09, p .06321
+selection (nemá rozptyl, neuvádět!)
+
+dospělí, zvážit, zda reportovat:
+- pokud ano, tak přidat korelaci mezi Office a House
+object_order:  OFFICE: RBANS SLOVA: incorrect_order	r = 0.3 (p = < .001)	STORY: r = 0.206 (p = .016)
+placement: Office	incorrect_placement	SLOVA r = 0.185 (p = .031)	STORY r = 0.013 (p = .877)
+v dospělosti již subtyp nehraje takovou roli, pravděpodobně využívají strategii příběhu i u slov, což u dětí pravděpodobně není
+
+
+
