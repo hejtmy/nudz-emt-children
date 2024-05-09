@@ -13,34 +13,7 @@ here::i_am("web/emt-children.qmd")
 
 ```{r loading, message=FALSE, warning=FALSE}
 # loads df_vr and df_all dataframes
-source(here::here("scripts/loading-children.R"))
-
-df_all_unfiltered <- df_all
-df_vr_unfiltered <- df_vr
-
-df_vr <- df_vr %>%
-  filter(!(error_type %in% c("total_error", "incorrect_location_order")))
-
-df_all <- df_all %>%
-  filter(!(error_type %in% c("total_error", "incorrect_location_order")))
-
-# Adding total error -----
-df_all <- df_all %>%
-  group_by(error_type, name, age_month) %>%
-  summarise(all_trials_error = sum(error_value),
-            all_trials_avg_relative_error = sum(relative_error_value)/3,
-            all_trials_avg_relative_correct = 1 - all_trials_avg_relative_error) %>%
-  ungroup() %>%
-  right_join(df_all, by = c("name", "age_month", "error_type"))
-  # convert the all trials error column to a row with difficulty set to 99
-
-df_vr <- df_vr %>%
-  group_by(error_type, name, age_month) %>%
-  summarise(all_trials_error = sum(error_value),
-            all_trials_avg_relative_error = sum(relative_error_value)/3,
-            all_trials_avg_relative_correct = 1 - all_trials_avg_relative_error) %>%
-  ungroup() %>%
-  right_join(df_vr, by = c("name", "age_month", "error_type"))
+source(here("scripts", "prepare-manuscript-data.R"))
 ```
 
 ## Sample descriptives
@@ -71,16 +44,16 @@ df_location_object_error %>%
     labs(x = "Incorrect location order error", y = "Incorrect object order error", 
          title = "Correlation between incorrect location order error and incorrect object order error")
 
-report::report(cor.test(df_location_object_error$incorrect_location_order, df_location_object_error$incorrect_object_order, 
-method = "kendall"))
+report::report(cor.test(df_location_object_error$incorrect_location_order, 
+                        df_location_object_error$incorrect_object_order,
+                        method = "kendall"))
 ```
 
 ## Descriptives
 
 ```{r}
-df_vr %>%
+df_single %>%
   select(name, age_months, gender) %>%
-  distinct() %>%
   ggplot(aes(age_months, fill = gender)) +
     geom_histogram(binwidth = 3) + 
     labs(x = "Age (months)", y = "Count", 
@@ -119,15 +92,15 @@ ls_analysis <- list(mean = mean, sd = sd, min = min,
                     max = max, median = median,
                     sd_mean = ~sd(.x)/sqrt(n()))
 
-df_error_desc <- df_vr %>%
+df_error_desc <- df_all %>%
   group_by(difficulty, error_type) %>%
   summarise(across(error_value, .fns = ls_analysis, .names = "{.fn}"))
 
-df_rel_error_desc <- df_vr %>%
+df_rel_error_desc <- df_all %>%
   group_by(difficulty, error_type) %>%
   summarise(across(relative_error_value, ls_analysis, .names = "{.fn}"))
 
-df_rel_corr_desc <- df_vr %>%
+df_rel_corr_desc <- df_all %>%
   group_by(difficulty, error_type) %>%
   summarise(across(relative_correct, ls_analysis, .names = "{.fn}"))
 

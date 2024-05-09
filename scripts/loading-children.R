@@ -13,11 +13,13 @@ rename_demographics <- function(df_input) {
 df_vr <- read_excel(here("data/processed-data.xlsx"), sheet = 3)
 df_vr <- rename_demographics(df_vr)
 
+# rename genders and ages, removes certain columns
 df_vr <- df_vr[, -c(30:33)] %>%
   mutate(age_months = age_month,
          # relabel gender 1 to female and 0 to male
          gender = case_match(gender,  c(0) ~ "male", c(1) ~ "female"))
 
+# 
 df_vr <- df_vr %>%
   select(-contains("all"), -(contains(","))) %>%
   pivot_longer(cols = c(starts_with("CO"), starts_with("OPE"),
@@ -55,8 +57,10 @@ df_nr <- select(df_nr, 1:7, NR = `NR [40]`, SR = `SR [34]`)
 df_hiding <- read_excel(here("data/processed-data.xlsx"),
                         sheet = 6, na = c("", "-"))
 df_hiding <- rename_demographics(df_hiding)
+
 colnames(df_hiding)[8:13] <- c(paste0(c("plush_"), c("what", "where", "order")),
-  paste0(c("child_"), c("what", "where", "order")))
+                               paste0(c("child_"), c("what", "where", "order")))
+
 df_hiding <- select(df_hiding, name:child_order)
 # separate column hiding which is 1+2 into hiding_1 and hiding_2
 
