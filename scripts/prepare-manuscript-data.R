@@ -16,4 +16,4 @@ df_all <- df_all %>%
   ungroup() %>%
   right_join(df_all, by = c("name", "age_month", "error_type"))
 
-df_vr <- select(df_all, name:relative_correct)
+df_vr <- select(df_all, name:relative_correct, error_type)

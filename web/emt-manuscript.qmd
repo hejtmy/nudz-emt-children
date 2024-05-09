@@ -8,13 +8,24 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)
 library(tidyverse)
 library(gt)
 library(report)
+library(report)
 library(patchwork)
 here::i_am("web/emt-children.qmd")
 source(here::here("scripts/prepare-manuscript-data.R"))
+
+relabel_errors <- function(dat){
+  dat <- dat %>% 
+    mutate(error_type = case_when(
+      error_type == "selection" ~ "Item selection error",
+      error_type == "incorrect_placement" ~ "Placement error",
+      error_type == "incorrect_object_order" ~ "Object order error", 
+      TRUE ~ error_type
+    ))
+  return(dat)
+}
 ```
 
 Popis vzorku + distribuce veku vs. pohlaví (počty dětí v obtížnostech)
-
 
 ```{r}
 df_single <- df_all %>%
@@ -34,7 +45,9 @@ df_vr %>%
 ```{r}
 df_single %>%
   group_by(gender) %>%
-  summarise(n = n(), mean_age = mean(age_month), sd_age = sd(age_month), min_age = min(age_month), max_age = max(age_month)) %>%
+  summarise(n = n(), mean_age = mean(age_month), 
+            sd_age = sd(age_month), min_age = min(age_month),
+            max_age = max(age_month)) %>%
   gt() %>%
   tab_header(title = "Demographics") %>%
   fmt_number(columns = c("mean_age", "sd_age"), decimals = 3) %>%
@@ -54,33 +67,88 @@ All children completed all trials.
 
 ```{r}
 plt_raw_error <- df_vr %>%
-  select(difficulty, relative_correct, error_type, error_value) %>%
-  ggplot(aes(x = as.factor(difficulty), y = error_value, fill = error_type)) + geom_boxplot() +
-  facet_wrap(~error_type)
+  # relabel fill selection becomes item selection, incorrect_placement becomes placement error 
+  relabel_errors() %>%
+  select(difficulty, error_type, error_value) %>%
+  ggplot(aes(x = as.factor(difficulty), y = error_value)) +
+    geom_boxplot() +
+    guides(fill = "none") +
+    papaja::theme_apa(base_size = 16) +
+    geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
+    labs(x = "", y = "Absolute number of errors") +
+    facet_wrap(~error_type)
+    
 
 plt_relative_correct <- df_vr %>%
-  select(difficulty, relative_correct, error_type, error_value) %>%
-  ggplot(aes(x = as.factor(difficulty), y = relative_correct, fill = error_type)) + 
+  relabel_errors() %>%
+  select(difficulty, relative_correct, error_type) %>%
+  ggplot(aes(x = as.factor(difficulty), y = relative_correct)) + 
+    geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
+    labs(x = "Trial difficulty", y = "Relative accuracy (1 is perfect performance)") +
+    guides(fill = "none") +
     geom_boxplot() +
-  facet_wrap(~error_type)
+    papaja::theme_apa(base_size = 16) +
+    facet_wrap(~error_type)
 
-plt_raw_error / plt_relative_correct
+plt_raw_error / plt_relative_correct +
+  plot_annotation(
+    title = "Error descriptives",
+    caption = '',
+    theme = theme(plot.title = element_text(size = 26, hjust = 0.5))
+  )
 ```
 
-Ukázka Průměrné počty chyb dle náročnosti úkolů 3,4,5 a podmínek - zobrazit a popsat:
+### Error description
 
-(Vysvětlení typu chyb a případných rozdílů v hodnocení) + Korelace mezi object and location order error a proč analyzujeme jen jedno
-The Kendall's rank correlation tau between
-df_location_object_error$incorrect_location_order and
-df_location_object_error$incorrect_object_order is positive, statistically
-significant, and very large (tau = 1.00, z = 12.55, p < .001)
+Participant can make one of four distinct errors come in four different types:
+
+- Item selection error: the participant selected the wrong item when given the option at the beginning of the trial
+- Incorrect placement: the participant placed the item at a wrong position (not )
+- Object order error: the participant placed the item in a wrong order (different from the order in the instruction)
+- Location order error: the participant placed the item (correct or incorrect) in a possible location, but different from the order in the instruction
 
 
+```{r object location order error corr, message = FALSE}
+df_location_object_error <- df_vr_unfiltered %>%
+  filter(error_type %in% c("incorrect_location_order", "incorrect_object_order")) %>%
+  select(-c(relative_error_value, made_error)) %>%
+  pivot_wider(names_from = error_type, values_from = error_value)
 
-Vysvětlit převod na Relative accuracy/error - k tomu statistika
-As there is a difference in the potential number of errors possible at different difficulties, we also calculated the relative error (errors/max possible errors) relative accuracy (1 - errors/max posibble errors). So the number 1 in relative accuracy means the best possible performance.
+df_location_object_error %>%
+  ggplot(aes(incorrect_location_order, incorrect_object_order)) +
+    geom_jitter() +
+    geom_smooth(method = "lm") +
+    labs(x = "Incorrect location order error", y = "Incorrect object order error", 
+        title = "Correlation between incorrect location order error and incorrect object order error")
 
+cor_location_object_order_error <- cor.test(df_location_object_error$incorrect_location_order, 
+                        df_location_object_error$incorrect_object_order,
+                        method="kendall")
+       
+```
+
+The object order error and location order errors are in our implementation identical, as it is generally true that when participants places the object in a wrong location, they will also place the object in a wrong order. There are other implementations where the object order error is calculated differently, so the two can be exclusive, but in our case the correlation between object order error and location error is 1 (`r report::report_statistics(cor_location_object_order_error)`), so we left only object order error in the analyses
+
+### Relative accuracy
+
+As there is a difference in the potential number of errors possible at different difficulties (for example, you cannot make four selection mistakes out of three items), we also calculated the **relative accuracy** (1 - errors/maximum posibble errors). So the number 1 in relative accuracy means the best possible performance. This should allow us to consider the performance across different difficulties.
+
+## Increasing number of errors with increasing difficulty
 efekt náročnosti je viditelný u všech parametrů (zvyšující se počet chyb) - doplnit statistiku 
+
+```{r}
+df_vr %>%
+  group_by(error_type) %>%
+  group_modify(~report_table(aov(error_value ~ difficulty, data = .x))) %>%
+  report_table()
+```
+
+::: {.callout-warning}
+Just to remind, if one location is incorrect, then more locations will be incorrect after that, as the participant will not be able to place the objects correctly. This will overestimate the number of errors in later trials, as the errors are not independent and it is almost impossible to do "just one error" in the order of objects. Selection and placement are independent from one item to another.
+:::
+
+## Effect of age on performance
+
 efekt obtížnosti u jednotlivých podmínek (typ chyby)? - diskutovat, proč nejsou přímo srovnatelné.
 
 efekt věku na výkon
