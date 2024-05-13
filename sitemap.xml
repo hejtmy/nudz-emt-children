@@ -1,23 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://hejtmy.github.io/nudz-emt-children/web/vr-hiding-task.html</loc>
-    <lastmod>2024-03-08T12:12:51.116Z</lastmod>
-  </url>
-  <url>
-    <loc>https://hejtmy.github.io/nudz-emt-children/web/emt-adults.html</loc>
-    <lastmod>2024-03-08T15:59:26.668Z</lastmod>
-  </url>
-  <url>
     <loc>https://hejtmy.github.io/nudz-emt-children/about.html</loc>
-    <lastmod>2024-03-08T12:12:51.113Z</lastmod>
+    <lastmod>2024-05-13T00:02:13.766Z</lastmod>
   </url>
   <url>
     <loc>https://hejtmy.github.io/nudz-emt-children/index.html</loc>
-    <lastmod>2024-03-08T12:12:51.113Z</lastmod>
+    <lastmod>2024-05-13T00:02:14.281Z</lastmod>
+  </url>
+  <url>
+    <loc>https://hejtmy.github.io/nudz-emt-children/web/emt-adults.html</loc>
+    <lastmod>2024-05-13T00:02:23.418Z</lastmod>
   </url>
   <url>
     <loc>https://hejtmy.github.io/nudz-emt-children/web/emt-children.html</loc>
-    <lastmod>2024-03-08T15:57:41.698Z</lastmod>
+    <lastmod>2024-05-13T00:02:38.537Z</lastmod>
+  </url>
+  <url>
+    <loc>https://hejtmy.github.io/nudz-emt-children/web/emt-manuscript.html</loc>
+    <lastmod>2024-05-13T00:02:47.416Z</lastmod>
+  </url>
+  <url>
+    <loc>https://hejtmy.github.io/nudz-emt-children/web/vr-hiding-task.html</loc>
+    <lastmod>2024-05-13T00:02:51.617Z</lastmod>
   </url>
 </urlset>
