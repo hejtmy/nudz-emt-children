@@ -240,11 +240,6 @@ report(lmer_rel_age_diff)
 
 There is no significant effect of age on the performance in the VR task. No effect of gender or the interaction between the two either. 
 
-
-ale lze dokladovat srovnáním děti vs. dospělí u 5 objektů - různé  typy chyb
-připravit i graf a skupinovou statistiku srovnávající Relative accuracy
-ukázat i všechny náročnosti? děti 3,4,5, dospělí -5,7,9?
-
 ## Validation with standard tests
 
 Maximum theoretical points is 40 for the story repetition and 34 for the sentence repetition. Higher score is better. 
@@ -361,6 +356,7 @@ df_adults_children_combined %>%
 ```
 
 ### Aduts RBANS
+
 ```{r}
 df_emt_adults %>%
   # filter(Environment == "House") %>%
