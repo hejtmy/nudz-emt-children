@@ -9,6 +9,7 @@ library(tidyverse)
 library(gt)
 library(report)
 library(lmerTest)
+library(papaja)
 library(report)
 library(stringr)
 library(patchwork)
@@ -18,9 +19,9 @@ source(here::here("scripts/prepare-manuscript-data.R"))
 relabel_errors <- function(dat){
   dat <- dat %>% 
     mutate(error_type = case_when(
-      error_type == "selection" ~ "Item selection error",
-      error_type == "incorrect_placement" ~ "Placement error",
-      error_type == "incorrect_object_order" ~ "Object order error", 
+      error_type == "selection" ~ "Item selection",
+      error_type == "incorrect_placement" ~ "Placement",
+      error_type == "incorrect_object_order" ~ "Object order", 
       TRUE ~ error_type
     ))
   return(dat)
@@ -30,6 +31,25 @@ df_single <- df_all %>%
   group_by(name, school, age_month, gender) %>%
   slice_head(n = 1) %>%
   ungroup()
+
+source(here::here("scripts/loading-adults.R"), encoding = "UTF-8")
+df_emt_adults <- df_emt_adults %>%
+  filter(Environment == "House")
+
+df_adults_single <- df_emt_adults %>%
+  group_by(ID.x) %>%
+  slice_head(n=1)
+
+df_adults_children_combined <- df_emt_adults %>%
+  select(error_type, error_value = errors, difficulty,
+         relative_correct, ID = bindingid) %>%
+  mutate(group = "Adults",
+         error_type = case_match(error_type,
+          "incorrect_order" ~ "incorrect_object_order", .default = error_type)) %>%
+  bind_rows(df_vr %>%
+    filter(error_type != "selection") %>%
+    select(error_type, difficulty, error_value, relative_correct, ID = name) %>%
+    mutate(group = "Children"))
 ```
 
 ```{r, eval = FALSE}
@@ -47,7 +67,7 @@ df_single %>%
             sd_age = sd(age_month), min_age = min(age_month),
             max_age = max(age_month)) %>%
   gt() %>%
-  tab_header(title = "Demographics") %>%
+  tab_header(title = "Demographics for the children participants") %>%
   fmt_number(columns = c("mean_age", "sd_age"), decimals = 3) %>%
   tab_spanner(label = "Age in months", columns = c("mean_age", "sd_age", "min_age", "max_age")) %>%
   # relabel variable names mean and sd and min to Mean, SD, Min, Max
@@ -57,9 +77,24 @@ df_single %>%
               max_age = "Max")
 ```
 
-A total of `r nrow(df_single)` children participated in the study. Age demographics can be seen in Tab XY. Children were recruited from `r n_distinct(df_single$school)` schools.
+A total of `r nrow(df_single)` children participated in the study. Age demographics can be seen in Tab XY. Children were recruited from `r n_distinct(df_single$school)` schools. All children completed all trials. 
 
-All children completed all trials. 
+```{r demographics adults}
+df_adults_single %>%
+  group_by(Gender) %>%
+  summarise(n = n(), mean_age = mean(Age), 
+            sd_age = sd(Age), min_age = min(Age),
+            max_age = max(Age)) %>%
+  gt() %>%
+  tab_header(title = "Demographics for the adults") %>%
+  fmt_number(columns = c("mean_age", "sd_age"), decimals = 3) %>%
+  tab_spanner(label = "Age", columns = c("mean_age", "sd_age", "min_age", "max_age")) %>%
+  # relabel variable names mean and sd and min to Mean, SD, Min, Max
+  cols_label(mean_age = "Mean",
+              sd_age = "SD",
+              min_age = "Min",
+              max_age = "Max")
+```
 
 ## Error description
 
@@ -70,7 +105,7 @@ Participant can make one of four distinct errors:
 - Object order error: the participant placed the item in a wrong order (different from the order in the instruction)
 - Location order error: the participant placed the item (correct or incorrect) in a possible location, but different from the order in the instruction
 
-```{r object location order error corr, message = FALSE}
+```{r object location order error corr, message = FALSE, fig.width=10, fig.height=5}
 df_location_object_error <- df_vr_unfiltered %>%
   filter(error_type %in% c("incorrect_location_order", "incorrect_object_order")) %>%
   select(-c(relative_error_value, made_error)) %>%
@@ -97,28 +132,29 @@ As there is a difference in the potential number of errors possible at different
 
 ## Average error demographics
 
-```{r}
-plt_raw_error <- df_vr %>%
+```{r fig.width=10, fig.height=15}
+#| out-width: 80%
+plt_raw_error <- df_adults_children_combined %>%
   # relabel fill selection becomes item selection, incorrect_placement becomes placement error 
   relabel_errors() %>%
-  select(difficulty, error_type, error_value) %>%
-  ggplot(aes(x = as.factor(difficulty), y = error_value)) +
+  select(difficulty, error_type, error_value, group) %>%
+  ggplot(aes(x = as.factor(difficulty), y = error_value, fill = group)) +
     geom_boxplot() +
     guides(fill = "none") +
-    papaja::theme_apa(base_size = 16) +
+    papaja::theme_apa(base_size = 18) +
     geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
     labs(x = "", y = "Absolute number of errors") +
     facet_wrap(~error_type)
 
-plt_relative_correct <- df_vr %>%
+plt_relative_correct <- df_adults_children_combined %>%
   relabel_errors() %>%
-  select(difficulty, relative_correct, error_type) %>%
-  ggplot(aes(x = as.factor(difficulty), y = relative_correct)) + 
+  select(difficulty, relative_correct, error_type, group) %>%
+  ggplot(aes(x = as.factor(difficulty), y = relative_correct, fill = group)) + 
     geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
     labs(x = "Trial difficulty", y = "Relative accuracy (1 is perfect performance)") +
-    guides(fill = "none") +
     geom_boxplot() +
-    papaja::theme_apa(base_size = 16) +
+    papaja::theme_apa(base_size = 18) +
+    theme(legend.position = "bottom") +
     facet_wrap(~error_type)
 
 plt_raw_error / plt_relative_correct +
@@ -132,26 +168,48 @@ plt_raw_error / plt_relative_correct +
 ## Increasing number of errors with increasing difficulty
 
 ```{r error descriptive table}
-df_all %>%
+df_adults_children_combined %>%
   relabel_errors() %>%
-  group_by(error_type, difficulty) %>%
+  group_by(error_type, difficulty, group) %>%
   summarise(absolute_errors = str_glue("M = {round(mean(error_value),3)} ({round(sd   (error_value),3)})"),
             relative_accuracy = str_glue("M = {round(mean(relative_correct),3)} ({round(sd(relative_correct),3)})")) %>%
       pivot_longer(cols = c(absolute_errors, relative_accuracy), values_to = "value") %>%
     pivot_wider(names_from = difficulty, values_from = value) %>%
-    group_by(name) %>%
+    group_by(name, group) %>%
   gt() %>%
-  tab_header(title = "Error descriptives", subtitle = "Mean and standard deviation of absolute errors and relative accuracy across different difficulties")
-
+  tab_header(title = "Error descriptives", 
+             subtitle = "Mean and standard deviation of absolute errors and relative accuracy across different difficulties")
 ```
-
-efekt náročnosti je viditelný u všech parametrů (zvyšující se počet chyb) - doplnit statistiku 
 
 ```{r}
 df_vr %>%
   group_by(error_type) %>%
   group_modify(~report_table(aov(error_value ~ difficulty, data = .x))) %>%
-  report_table()
+  gt() %>%
+  tab_header(title = "ANOVA for error types and difficulty") %>%
+  fmt_number(columns = where(is.numeric), decimals = 3)
+
+aov_order_difficulty <- aov(error_value ~ as.factor(difficulty), data = filter(df_vr, error_type == "incorrect_object_order"))
+aov_placement_difficulty <- aov(error_value ~ as.factor(difficulty), data = filter(df_vr, error_type == "incorrect_placement"))
+aov_selection_difficulty <- aov(error_value ~ as.factor(difficulty), data = filter(df_vr, error_type == "selection"))
+```
+
+We can see that the number of errors increases with increasing difficulty for both object order error (`r report_statistics(aov_order_difficulty)`) and placement error (`r report_statistics(aov_placement_difficulty)`), but not in the selection error (`r report_statistics(aov_selection_difficulty)`).
+
+```{r}
+TukeyHSD(aov_order_difficulty)[[1]] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "difficulty comparison") %>%
+  gt() %>%
+    tab_header(title = "Tukey HSD for object order error") %>%
+    fmt_number(columns = where(is.numeric), decimals = 3)
+
+TukeyHSD(aov_placement_difficulty)[[1]] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "difficulty comparison") %>%
+  gt() %>%
+    tab_header(title = "Tukey HSD for placement errors") %>%
+    fmt_number(columns = where(is.numeric), decimals = 3)
 ```
 
 ::: {.callout-warning}
@@ -159,8 +217,6 @@ Just to remind, if one location is incorrect, then more locations will be incorr
 :::
 
 ## Effect of age on performance
-
-efekt obtížnosti u jednotlivých podmínek (typ chyby)? - diskutovat, proč nejsou přímo srovnatelné.
 
 ```{r age and performance, eval = FALSE}
 df_vr %>%
@@ -173,18 +229,17 @@ df_vr %>%
   geom_smooth(method = "lm") +
   labs(x = "Age (months)", y = "Average relative accuracy value (1 - error / difficulty)", 
        title = "Relative accuracy in averaged for all three trials") +
-  papaja::theme_apa(base_size = 20) +
+  papaja::theme_apa(base_size = 18) +
   theme(legend.position = "bottom")
 ```
 
-```{r, results = "asis", eval = FALSE}
-lmer_rel_age_diff <- lmerTest::lmer(relative_correct ~ age_months + difficulty + error_type + (1|name), data = df_vr)
+```{r, results = "asis"}
+lmer_rel_age_diff <- lmerTest::lmer(relative_correct ~ age_months*gender + (1|name), data = df_vr)
 report(lmer_rel_age_diff)
 ```
 
-nelze posoudit u dětí (nevyváženo u pohlaví), pravděpodobně nevychází v důsledku nerovnoměrné distribuce věku a pohlaví:
-The effect of age months is statistically non-significant and negative (beta = -4.00e-03, 95% CI [-9.72e-03, 1.72e-03], t(416) = -1.37, p = 0.170; Std. beta = -0.07, 95% CI [-0.17, 0.03])
-Obrázek korelace s věkem/pohlaví nedávat!
+There is no significant effect of age on the performance in the VR task. No effect of gender or the interaction between the two either. 
+
 
 ale lze dokladovat srovnáním děti vs. dospělí u 5 objektů - různé  typy chyb
 připravit i graf a skupinovou statistiku srovnávající Relative accuracy
@@ -216,7 +271,7 @@ df_all %>%
   fmt_number(columns = c(mean, sd), decimals = 3)
 ```
 
-```{r relationship between sentence }
+```{r relationship between sentence, fig.width=10, fig.height=12 }
 plt_nr_accuracy <- df_all %>%
   group_by(name, error_type) %>%
   relabel_errors() %>%
@@ -228,7 +283,7 @@ plt_nr_accuracy <- df_all %>%
     labs(x = "Relative accuracy (averaged across all trials)", 
          y = "Story repetition score" , 
          title = "Relationship between relative accuracy and story repetition score for all trials") +
-  papaja::theme_apa(base_size = 20)
+  papaja::theme_apa(base_size = 16)
 
 plt_sr_accuracy <- df_all %>%
   group_by(name, error_type) %>%
@@ -241,7 +296,7 @@ plt_sr_accuracy <- df_all %>%
     labs(x = "Relative accuracy (averaged across all trials)", 
          y = "Sentence repetition score" , 
          title = "Relationship between relative accuracy and sentence repetition score for all trials") +
-  papaja::theme_apa(base_size = 20)
+  papaja::theme_apa(base_size = 16)
 
 plt_nr_accuracy / plt_sr_accuracy 
 ```
@@ -254,7 +309,6 @@ df_cor_NR <- df_all %>%
   mutate(p.value = papaja::apa_p(p.adjust(p.value)),
         value = "Story repetition") %>%
   ungroup() 
-
 
 df_cor_SR <- df_all %>%
   group_by(error_type) %>%
@@ -280,15 +334,48 @@ df_cor_NR %>%
     )
 ```
 
-## Adults section
-
-
 ## Adults vs. children
-dospělí, zvážit, zda reportovat:
-- pokud ano, tak přidat korelaci mezi Office a House
-object_order:  OFFICE: RBANS SLOVA: incorrect_order	r = 0.3 (p = < .001)	STORY: r = 0.206 (p = .016)
-placement: Office	incorrect_placement	SLOVA r = 0.185 (p = .031)	STORY r = 0.013 (p = .877)
-v dospělosti již subtyp nehraje takovou roli, pravděpodobně využívají strategii příběhu i u slov, což u dětí pravděpodobně není
 
+```{r comparison adults children descriptives}
+df_adults_children_combined %>%
+  relabel_errors() %>%
+  group_by(group, error_type) %>%
+  summarise(report_val = str_glue("{round(mean(error_value), 3)} ({round(sd(error_value), 3)})")) %>%
+  pivot_wider(names_from = group, values_from = report_val) %>%
+  gt() %>%
+    tab_header(title = "Descriptives of error values in adults and children in different error types for 5 item difficulty",
+              subtitle = "Mean (SD)")
+```
 
+```{r comparison adults children test}
+df_adults_children_combined %>%
+  relabel_errors() %>%
+  group_by(error_type) %>%
+  group_modify(~report_table(t.test(error_value ~ group, data = .))) %>%
+  select(-c(Parameter, Group, starts_with("CI"), Method, Alternative, starts_with("d_CI"))) %>%
+  ungroup() %>%
+  gt() %>%
+    tab_header(title = "Comparison of error values in adults and children in different error types for 5 item difficulty",
+              subtitle = "Independent samples t-test") %>%
+    fmt_number(columns = where(is.numeric), decimals = 3)
+```
 
+### Aduts RBANS
+```{r}
+df_emt_adults %>%
+  # filter(Environment == "House") %>%
+  pivot_longer(c(RBANS.A.1, RBANS.A.2), 
+              names_to = "RBANS", 
+              values_to = "RBANS_value") %>%
+  mutate(avg_relative_correct = mean(relative_correct, na.rm = TRUE), .by = ID.x) %>%
+  select(avg_relative_correct, Environment, error_type, RBANS, RBANS_value) %>%
+  relabel_errors() %>%
+  group_by(Environment, error_type, RBANS) %>%
+  group_modify(~broom::tidy(cor.test(.$RBANS_value, .$avg_relative_correct, method = "spearman"))) %>%
+  summarise(result = str_glue("r = {round(estimate, 3)} (p = {apa_p(p.value)})")) %>%
+  pivot_wider(names_from = RBANS, values_from = result) %>%
+  ungroup() %>%
+  gt() %>%
+  tab_header(title = "Correlation between RBANS and EMT for house environment",
+             subtitle = "Spearman's rho, not corrected for multiple comparisons. Average house performance across all trials")
+```
