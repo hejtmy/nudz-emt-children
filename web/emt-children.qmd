@@ -6,6 +6,7 @@ format: html
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)
 library(tidyverse)
+library(here)
 library(gt)
 library(report)
 here::i_am("web/emt-children.qmd")
@@ -172,7 +173,7 @@ df_vr %>%
        title = "Relative accuracy in individual error types averaged for all trials")
 ```
 
-```{r, results = "asis"}
+```{r, results = "asis", eval = FALSE}
 lmer_rel_age_diff <- lmerTest::lmer(relative_correct ~ age_months + difficulty + error_type + (1|name), data = df_vr)
 report(lmer_rel_age_diff)
 ```
@@ -327,7 +328,7 @@ df_all %>%
 ```
 
 
-```{r lmer model sentence repetition}
+```{r lmer model sentence repetition, eval=FALSE}
 lmerTest::lmer(relative_correct ~ error_type*SR + difficulty + (1|name), data = df_all) %>%
   summary()
 

@@ -8,7 +8,9 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)
 library(tidyverse)
 library(gt)
 library(report)
+library(lmerTest)
 library(report)
+library(stringr)
 library(patchwork)
 here::i_am("web/emt-children.qmd")
 source(here::here("scripts/prepare-manuscript-data.R"))
@@ -23,18 +25,14 @@ relabel_errors <- function(dat){
     ))
   return(dat)
 }
-```
 
-Popis vzorku + distribuce veku vs. pohlaví (počty dětí v obtížnostech)
-
-```{r}
 df_single <- df_all %>%
   group_by(name, school, age_month, gender) %>%
   slice_head(n = 1) %>%
   ungroup()
 ```
 
-```{r}
+```{r, eval = FALSE}
 df_vr %>%
   select(difficulty, name, school) %>%
   distinct() %>%
@@ -42,7 +40,7 @@ df_vr %>%
   count()
 ```
 
-```{r}
+```{r demographics age}
 df_single %>%
   group_by(gender) %>%
   summarise(n = n(), mean_age = mean(age_month), 
@@ -51,7 +49,7 @@ df_single %>%
   gt() %>%
   tab_header(title = "Demographics") %>%
   fmt_number(columns = c("mean_age", "sd_age"), decimals = 3) %>%
-  tab_spanner(label = "Age", columns = c("mean_age", "sd_age", "min_age", "max_age")) %>%
+  tab_spanner(label = "Age in months", columns = c("mean_age", "sd_age", "min_age", "max_age")) %>%
   # relabel variable names mean and sd and min to Mean, SD, Min, Max
   cols_label(mean_age = "Mean",
               sd_age = "SD",
@@ -62,6 +60,40 @@ df_single %>%
 A total of `r nrow(df_single)` children participated in the study. Age demographics can be seen in Tab XY. Children were recruited from `r n_distinct(df_single$school)` schools.
 
 All children completed all trials. 
+
+## Error description
+
+Participant can make one of four distinct errors:
+
+- Item selection error: the participant selected the wrong item when given the option at the beginning of the recollection trial
+- Incorrect placement: the participant placed the item in a wrong location
+- Object order error: the participant placed the item in a wrong order (different from the order in the instruction)
+- Location order error: the participant placed the item (correct or incorrect) in a possible location, but different from the order in the instruction
+
+```{r object location order error corr, message = FALSE}
+df_location_object_error <- df_vr_unfiltered %>%
+  filter(error_type %in% c("incorrect_location_order", "incorrect_object_order")) %>%
+  select(-c(relative_error_value, made_error)) %>%
+  pivot_wider(names_from = error_type, values_from = error_value)
+
+df_location_object_error %>%
+  ggplot(aes(incorrect_location_order, incorrect_object_order)) +
+    geom_jitter() +
+    geom_smooth(method = "lm") +
+    labs(x = "Incorrect location order error", y = "Incorrect object order error", 
+        title = "Correlation between incorrect location order error and incorrect object order error") +
+    papaja::theme_apa(base_size = 16)
+
+cor_location_object_order_error <- cor.test(df_location_object_error$incorrect_location_order, 
+                        df_location_object_error$incorrect_object_order,
+                        method="kendall")
+```
+
+The object order error and location order errors are in our implementation identical, as it is generally true that when participants places the object in a wrong location, they will also place the object in a wrong order. There are other implementations where the object order error is calculated differently, so the two can be exclusive, but in our case the correlation between object order error and location error is 1 (`r report::report_statistics(cor_location_object_order_error)`), so we left only object order error in the analyses
+
+### Relative accuracy
+
+As there is a difference in the potential number of errors possible at different difficulties (for example, you cannot make four selection mistakes out of three items), we also calculated the **relative accuracy** (1 - errors/maximum posibble errors). So the number 1 in relative accuracy means the best possible performance. This should allow us to consider the performance across different difficulties.
 
 ## Average error demographics
 
@@ -77,7 +109,6 @@ plt_raw_error <- df_vr %>%
     geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
     labs(x = "", y = "Absolute number of errors") +
     facet_wrap(~error_type)
-    
 
 plt_relative_correct <- df_vr %>%
   relabel_errors() %>%
@@ -98,42 +129,22 @@ plt_raw_error / plt_relative_correct +
   )
 ```
 
-### Error description
+## Increasing number of errors with increasing difficulty
 
-Participant can make one of four distinct errors come in four different types:
+```{r error descriptive table}
+df_all %>%
+  relabel_errors() %>%
+  group_by(error_type, difficulty) %>%
+  summarise(absolute_errors = str_glue("M = {round(mean(error_value),3)} ({round(sd   (error_value),3)})"),
+            relative_accuracy = str_glue("M = {round(mean(relative_correct),3)} ({round(sd(relative_correct),3)})")) %>%
+      pivot_longer(cols = c(absolute_errors, relative_accuracy), values_to = "value") %>%
+    pivot_wider(names_from = difficulty, values_from = value) %>%
+    group_by(name) %>%
+  gt() %>%
+  tab_header(title = "Error descriptives", subtitle = "Mean and standard deviation of absolute errors and relative accuracy across different difficulties")
 
-- Item selection error: the participant selected the wrong item when given the option at the beginning of the trial
-- Incorrect placement: the participant placed the item at a wrong position (not )
-- Object order error: the participant placed the item in a wrong order (different from the order in the instruction)
-- Location order error: the participant placed the item (correct or incorrect) in a possible location, but different from the order in the instruction
-
-
-```{r object location order error corr, message = FALSE}
-df_location_object_error <- df_vr_unfiltered %>%
-  filter(error_type %in% c("incorrect_location_order", "incorrect_object_order")) %>%
-  select(-c(relative_error_value, made_error)) %>%
-  pivot_wider(names_from = error_type, values_from = error_value)
-
-df_location_object_error %>%
-  ggplot(aes(incorrect_location_order, incorrect_object_order)) +
-    geom_jitter() +
-    geom_smooth(method = "lm") +
-    labs(x = "Incorrect location order error", y = "Incorrect object order error", 
-        title = "Correlation between incorrect location order error and incorrect object order error")
-
-cor_location_object_order_error <- cor.test(df_location_object_error$incorrect_location_order, 
-                        df_location_object_error$incorrect_object_order,
-                        method="kendall")
-       
 ```
 
-The object order error and location order errors are in our implementation identical, as it is generally true that when participants places the object in a wrong location, they will also place the object in a wrong order. There are other implementations where the object order error is calculated differently, so the two can be exclusive, but in our case the correlation between object order error and location error is 1 (`r report::report_statistics(cor_location_object_order_error)`), so we left only object order error in the analyses
-
-### Relative accuracy
-
-As there is a difference in the potential number of errors possible at different difficulties (for example, you cannot make four selection mistakes out of three items), we also calculated the **relative accuracy** (1 - errors/maximum posibble errors). So the number 1 in relative accuracy means the best possible performance. This should allow us to consider the performance across different difficulties.
-
-## Increasing number of errors with increasing difficulty
 efekt náročnosti je viditelný u všech parametrů (zvyšující se počet chyb) - doplnit statistiku 
 
 ```{r}
@@ -151,22 +162,128 @@ Just to remind, if one location is incorrect, then more locations will be incorr
 
 efekt obtížnosti u jednotlivých podmínek (typ chyby)? - diskutovat, proč nejsou přímo srovnatelné.
 
-efekt věku na výkon
+```{r age and performance, eval = FALSE}
+df_vr %>%
+  group_by(name, error_type) %>%
+  relabel_errors() %>%
+  slice_head(n = 1) %>%
+  ggplot(aes(age_months, all_trials_avg_relative_correct, color = gender)) +
+  geom_point() +
+  facet_grid(cols = vars(error_type), scales = "free_y") +
+  geom_smooth(method = "lm") +
+  labs(x = "Age (months)", y = "Average relative accuracy value (1 - error / difficulty)", 
+       title = "Relative accuracy in averaged for all three trials") +
+  papaja::theme_apa(base_size = 20) +
+  theme(legend.position = "bottom")
+```
+
+```{r, results = "asis", eval = FALSE}
+lmer_rel_age_diff <- lmerTest::lmer(relative_correct ~ age_months + difficulty + error_type + (1|name), data = df_vr)
+report(lmer_rel_age_diff)
+```
+
 nelze posoudit u dětí (nevyváženo u pohlaví), pravděpodobně nevychází v důsledku nerovnoměrné distribuce věku a pohlaví:
 The effect of age months is statistically non-significant and negative (beta = -4.00e-03, 95% CI [-9.72e-03, 1.72e-03], t(416) = -1.37, p = 0.170; Std. beta = -0.07, 95% CI [-0.17, 0.03])
 Obrázek korelace s věkem/pohlaví nedávat!
+
 ale lze dokladovat srovnáním děti vs. dospělí u 5 objektů - různé  typy chyb
 připravit i graf a skupinovou statistiku srovnávající Relative accuracy
 ukázat i všechny náročnosti? děti 3,4,5, dospělí -5,7,9?
 
+## Validation with standard tests
 
-korelace se standardními testy:
-děti (Sentence repetition a Story Telling):
-kumulativní skóry (grafy a statistika) pro:
-incorrect_object_order: koreluje se Story r = 0.29	p .002, nesignifikantně s Sentence r=0,16, p .069
-incorrect_placement:  koreluje se Story r = 0.18	p .057, nesignifikantně s Sentence r=0,09, p .06321
-selection (nemá rozptyl, neuvádět!)
+Maximum theoretical points is 40 for the story repetition and 34 for the sentence repetition. Higher score is better. 
 
+```{r story and sentence descriptives}
+df_all %>%
+  group_by(name) %>%
+  slice_head(n = 1) %>%
+  ungroup() %>%
+  select(name, NR, SR) %>%
+  filter(!is.na(NR)) %>%
+  summarise(mean_NR = mean(NR), sd_NR = sd(NR), min_NR = min(NR), max_NR = max(NR),
+            mean_SR = mean(SR), sd_SR = sd(SR), min_SR = min(SR), max_SR = max(SR)) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+  separate(variable, into = c("var", "test"), sep = "_") %>%
+  pivot_wider(names_from = var, values_from = value) %>%
+  mutate(test = case_when(
+    test == "NR" ~ "Story repetition",
+    test == "SR" ~ "Sentence repetition",
+    TRUE ~ test
+  )) %>%
+  gt() %>%
+  tab_header(title = "Descriptives of standard tests") %>%
+  fmt_number(columns = c(mean, sd), decimals = 3)
+```
+
+```{r relationship between sentence }
+plt_nr_accuracy <- df_all %>%
+  group_by(name, error_type) %>%
+  relabel_errors() %>%
+  slice_head(n = 1) %>%
+  ggplot(aes(all_trials_avg_relative_correct, NR)) +
+  geom_point() +
+    geom_smooth(method = "lm", color = "brown") +
+    facet_wrap(~error_type, scales = "free") +
+    labs(x = "Relative accuracy (averaged across all trials)", 
+         y = "Story repetition score" , 
+         title = "Relationship between relative accuracy and story repetition score for all trials") +
+  papaja::theme_apa(base_size = 20)
+
+plt_sr_accuracy <- df_all %>%
+  group_by(name, error_type) %>%
+  relabel_errors() %>%
+  slice_head(n = 1) %>%
+  ggplot(aes(all_trials_avg_relative_correct, SR)) +
+    geom_point() +
+    geom_smooth(method = "lm", color = "violet") +
+    facet_wrap(~error_type, scales = "free") +
+    labs(x = "Relative accuracy (averaged across all trials)", 
+         y = "Sentence repetition score" , 
+         title = "Relationship between relative accuracy and sentence repetition score for all trials") +
+  papaja::theme_apa(base_size = 20)
+
+plt_nr_accuracy / plt_sr_accuracy 
+```
+
+```{r story repetition score}
+df_cor_NR <- df_all %>%
+  group_by(error_type) %>%
+  group_modify(~broom::tidy(cor.test(.$NR, .$relative_correct, method = "spearman"))) %>%
+  select(estimate, statistic, p.value) %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value)),
+        value = "Story repetition") %>%
+  ungroup() 
+
+
+df_cor_SR <- df_all %>%
+  group_by(error_type) %>%
+  group_modify(~broom::tidy(cor.test(.$SR, .$relative_correct, method = "spearman"))) %>%
+  select(estimate, statistic, p.value) %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value)), 
+        value = "Sentence repetition") %>%
+  ungroup()
+
+df_cor_NR %>%
+  bind_rows(df_cor_SR) %>%
+  relabel_errors() %>%
+  select(value, everything()) %>%
+  group_by(value) %>%
+  gt() %>%
+    tab_header(title = "Correlation between relative accuracy and story/sentence repetition score",
+      subtitle = "Spearman correlation") %>%
+    fmt_number(columns = where(is.numeric), decimals = 2) %>%
+    # add footnote corrected for mutliple comparisons to the header
+    tab_footnote(
+      footnote = "Corrected for multiple comparisons using FDR method within each category (story or sentence repetitions)",
+      locations = cells_column_labels(vars(p.value))
+    )
+```
+
+## Adults section
+
+
+## Adults vs. children
 dospělí, zvážit, zda reportovat:
 - pokud ano, tak přidat korelaci mezi Office a House
 object_order:  OFFICE: RBANS SLOVA: incorrect_order	r = 0.3 (p = < .001)	STORY: r = 0.206 (p = .016)
