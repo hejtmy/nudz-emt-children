@@ -13,6 +13,7 @@ library(papaja)
 library(report)
 library(stringr)
 library(patchwork)
+library(performance)
 here::i_am("web/emt-children.qmd")
 source(here::here("scripts/prepare-manuscript-data.R"))
 
@@ -32,6 +33,24 @@ report_tukey <- function(tab, comparison) {
   row <- tab[tab[["difficulty comparison"]] == comparison, ]
   str_glue("*M*~diff~ = {round(row$diff, 2)}, 95% CI [{round(row$lwr, 2)}, ",
            "{round(row$upr, 2)}], *p* {papaja::apa_p(row[['p adj']], add_equals = TRUE)}")
+}
+
+# helper to report a single fixed-effect term from an lmerTest model in APA style inline
+report_lmer_term <- function(model, term) {
+  co <- summary(model)$coefficients
+  est <- co[term, "Estimate"]; se <- co[term, "Std. Error"]
+  df  <- co[term, "df"];       t  <- co[term, "t value"]; p <- co[term, "Pr(>|t|)"]
+  ci  <- est + c(-1, 1) * qt(0.975, df) * se
+  fmt <- function(x) formatC(x, format = "g", digits = 3)
+  str_glue("$\\beta$ = {fmt(est)}, 95% CI [{fmt(ci[1])}, {fmt(ci[2])}], ",
+           "*t*({round(df, 0)}) = {round(t, 2)}, *p* {papaja::apa_p(p, add_equals = TRUE)}")
+}
+
+# helper to report conditional / marginal R2 of an lmer model inline
+report_lmer_r2 <- function(model) {
+  r2 <- performance::r2(model)
+  str_glue("conditional *R*^2^ = {round(r2$R2_conditional, 3)}, ",
+           "marginal *R*^2^ = {round(r2$R2_marginal, 3)}")
 }
 
 df_single <- df_all %>%
@@ -128,10 +147,9 @@ Prior to the main analyses, we examined the redundancy of the two order-based er
 
 **Convergent validity.** Associations between performance on the virtual task and the standardized neuropsychological measures were tested with Spearman's rank correlations ($\rho$), which are robust to the bounded, non-normal distribution of the accuracy scores. In children, relative accuracy (averaged across trials) for each error type was correlated with the NEPSY Narrative Repetition and Sentence Repetition scores; *p* values were FDR-corrected within each neuropsychological test. In adults, relative accuracy was correlated with the two RBANS list-learning indices (RBANS A.1, word list; RBANS A.2, story); these exploratory correlations are reported uncorrected and interpreted descriptively given the small adult sample.
 
-
 ## Average error demographics
 
-```{r fig.width=10, fig.height=15}
+```{r fig.width=12, fig.height=8}
 #| out-width: 80%
 plt_raw_error <- df_adults_children_combined %>%
   # relabel fill selection becomes item selection, incorrect_placement becomes placement error 
@@ -142,7 +160,7 @@ plt_raw_error <- df_adults_children_combined %>%
     guides(fill = "none") +
     papaja::theme_apa(base_size = 18) +
     geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
-    labs(x = "", y = "Absolute number of errors") +
+    labs(x = "Trial difficulty", title = "Absolute number of errors") +
     facet_wrap(~error_type)
 
 plt_relative_correct <- df_adults_children_combined %>%
@@ -150,7 +168,7 @@ plt_relative_correct <- df_adults_children_combined %>%
   select(difficulty, relative_correct, error_type, group) %>%
   ggplot(aes(x = as.factor(difficulty), y = relative_correct, fill = group)) + 
     geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
-    labs(x = "Trial difficulty", y = "Relative accuracy (1 is perfect performance)") +
+    labs(x = "Trial difficulty", title = "Relative accuracy (1 is perfect performance)") +
     geom_boxplot() +
     papaja::theme_apa(base_size = 18) +
     theme(legend.position = "bottom") +
@@ -158,9 +176,7 @@ plt_relative_correct <- df_adults_children_combined %>%
 
 plt_raw_error / plt_relative_correct +
   plot_annotation(
-    title = "Error descriptives",
     caption = '',
-    theme = theme(plot.title = element_text(size = 26, hjust = 0.5))
   )
 ```
 
@@ -193,7 +209,9 @@ aov_placement_difficulty <- aov(error_value ~ as.factor(difficulty), data = filt
 aov_selection_difficulty <- aov(error_value ~ as.factor(difficulty), data = filter(df_vr, error_type == "selection"))
 ```
 
-We can see that the number of errors increases with increasing difficulty for both object order error (`r report_statistics(aov_order_difficulty)`) and placement error (`r report_statistics(aov_placement_difficulty)`), but not in the selection error (`r report_statistics(aov_selection_difficulty)`).
+### Task difficulty and errors
+
+We used analysis of variance to test whether the number of errors (raw values) differed between conditions. As expected, the number of errors increased with increasing difficulty for both the object-order error (`r report_statistics(aov_order_difficulty)`) and the placement error (`r report_statistics(aov_placement_difficulty)`), but, interestingly, not for the selection error (`r report_statistics(aov_selection_difficulty)`). This last result is most likely explained by the fact that the children made almost no selection mistakes regardless of difficulty (see Table XY).
 
 ```{r tukey HSD for difficulty}
 tukey_order_difficulty <- TukeyHSD(aov_order_difficulty)[[1]] %>%
@@ -203,8 +221,6 @@ tukey_order_difficulty <- TukeyHSD(aov_order_difficulty)[[1]] %>%
 tukey_placement_difficulty <- TukeyHSD(aov_placement_difficulty)[[1]] %>%
   as.data.frame() %>%
   rownames_to_column(var = "difficulty comparison")
-
-
 
 tukey_order_difficulty %>%
   gt() %>%
@@ -225,6 +241,30 @@ Just to remind, if one location is incorrect, then more locations will be incorr
 
 ## Effect of age on performance
 
+Our general developmental hypothesis stated that episodic memory performance would improve with increasing age among preschool children. To examine the effect of the child's age on overall performance, we fitted, separately for each error type, a linear mixed model predicting relative accuracy from the child's age and task difficulty (formula: `relative accuracy ~ age_months + difficulty`), with the participant entered as a random effect (`~ 1 | name`). The relationship between age, difficulty, and relative accuracy is illustrated in Figure XY.
+
+```{r age difficulty relative accuracy plot, fig.width=10, fig.height=8}
+#| fig-cap: "Relative accuracy as a function of age (in months) across error types and trial difficulties. Each point is a single trial; lines show ordinary least-squares fits with 95% confidence bands, separately for girls and boys. A relative accuracy of 1 (dashed line) denotes errorless performance."
+df_vr %>%
+  filter(error_type != "selection") %>%
+  relabel_errors() %>%
+  mutate(difficulty = factor(difficulty, labels = paste(sort(unique(difficulty)), "objects"))) %>%
+  ggplot(aes(age_months, relative_correct, colour = gender, fill = gender)) +
+    geom_hline(yintercept = 1, linetype = "dashed", colour = "grey50") +
+    geom_point(alpha = 0.4, size = 1.6) +
+    geom_smooth(method = "lm", alpha = 0.15) +
+    facet_grid(rows = vars(difficulty), cols = vars(error_type)) +
+    scale_colour_manual(values = c(female = "#1B9E77", male = "#7570B3"),
+                        aesthetics = c("colour", "fill"),
+                        labels = c(female = "Girls", male = "Boys"),
+                        name = NULL) +
+    labs(x = "Age (months)",
+         y = "Relative accuracy (1 = errorless performance)") +
+    papaja::theme_apa(base_size = 14) +
+    theme(legend.position = "bottom",
+          panel.spacing = unit(1, "lines"))
+```
+
 ```{r age and performance, eval = FALSE}
 df_vr %>%
   group_by(name, error_type) %>%
@@ -240,16 +280,49 @@ df_vr %>%
   theme(legend.position = "bottom")
 ```
 
-```{r, results = "asis"}
-lmer_rel_age_diff <- lmerTest::lmer(relative_correct ~ age_months*gender + (1|name), data = df_vr)
-report(lmer_rel_age_diff)
+### Selection accuracy and age
+```{r age selection error lmer}
+lmer_rele_age_diff_selection <- lmerTest::lmer(relative_correct ~ age_months + difficulty + (1|name), data = filter(df_vr, error_type == "selection"))
+report(lmer_rele_age_diff_selection)
+report_table(lmer_rele_age_diff_selection) %>%
+  gt() %>%
+  tab_header(title = "Linear mixed-effects model for selection error with age and difficulty as fixed effects and participant as random effect") %>%
+  fmt_number(columns = where(is.numeric), decimals = 3)
 ```
 
-There is no significant effect of age on the performance in the VR task. No effect of gender or the interaction between the two either. 
+For item-selection accuracy, the model's total explanatory power was weak (`r report_lmer_r2(lmer_rele_age_diff_selection)`). The effect of age was statistically non-significant and negative (`r report_lmer_term(lmer_rele_age_diff_selection, "age_months")`), and the effect of difficulty was likewise non-significant and negative (`r report_lmer_term(lmer_rele_age_diff_selection, "difficulty")`). This is consistent with the near-absence of selection errors reported above.
+
+### Object order accuracy and age
+```{r age order error lmer}
+lmer_rele_age_diff_order <- lmerTest::lmer(relative_correct ~ age_months + difficulty + (1|name), data = filter(df_vr, error_type == "incorrect_object_order"))
+report(lmer_rele_age_diff_order)
+report_table(lmer_rele_age_diff_order) %>%
+  gt() %>%
+  tab_header(title = "Linear mixed-effects model for object order error with age and difficulty as fixed effects and participant as random effect") %>%
+  fmt_number(columns = where(is.numeric), decimals = 3)
+```
+
+The model for object-order accuracy showed moderate explanatory power (`r report_lmer_r2(lmer_rele_age_diff_order)`). The effect of difficulty was statistically significant and negative (`r report_lmer_term(lmer_rele_age_diff_order, "difficulty")`), mirroring the ANOVA results reported above, whereas the effect of age was non-significant, although also negative (`r report_lmer_term(lmer_rele_age_diff_order, "age_months")`).
+
+### Placement accuracy and age
+```{r age placement accuracy lmer results}
+lmer_rele_age_diff_placement <- lmerTest::lmer(relative_correct ~ age_months + difficulty + (1|name), data = filter(df_vr, error_type == "incorrect_placement"))
+report(lmer_rele_age_diff_placement)
+report_table(lmer_rele_age_diff_placement) %>%
+  gt() %>%
+  tab_header(title = "Linear mixed-effects model for placement error with age and difficulty as fixed effects and participant as random effect") %>%
+  fmt_number(columns = where(is.numeric), decimals = 3)
+```
+
+Finally, the model for placement accuracy had substantial explanatory power (`r report_lmer_r2(lmer_rele_age_diff_placement)`). As with object-order accuracy, the effect of difficulty was statistically significant and negative (`r report_lmer_term(lmer_rele_age_diff_placement, "difficulty")`), while the effect of age was statistically non-significant and negative (`r report_lmer_term(lmer_rele_age_diff_placement, "age_months")`).
+
+Taken together, these models indicate that task difficulty was a robust predictor of object-order and placement accuracy, whereas the child's age within this narrow preschool range was not significantly associated with performance in any of the three error types. We return to possible explanations for this null age effect in the Discussion.
 
 ## Validation with standard tests
 
-Maximum theoretical points is 40 for the story repetition and 34 for the sentence repetition. Higher score is better. 
+To evaluate the convergent validity of the virtual task, we examined whether performance in the virtual house related to the children's performance on two standardized verbal-memory measures from the NEPSY battery: the Narrative (story) Repetition and the Sentence Repetition subtests. We hypothesized that children who performed better in the virtual episodic memory task would also score higher on these established memory measures. The maximum theoretical score is 40 points for the story repetition and 34 points for the sentence repetition, with higher scores indicating better performance; descriptive statistics for both subtests are reported in Table XY.
+
+Because the relative-accuracy scores and the test scores were bounded and not normally distributed, the associations were quantified with Spearman's rank correlations ($\rho$), computed separately for each error type and corrected for multiple comparisons within each standardized test using the false discovery rate. The relationships are displayed in Figure XY and summarized in Table XY.
 
 ```{r story and sentence descriptives}
 df_all %>%
@@ -273,7 +346,7 @@ df_all %>%
   fmt_number(columns = c(mean, sd), decimals = 3)
 ```
 
-```{r relationship between sentence, fig.width=10, fig.height=12 }
+```{r relationship between sentence, fig.width=12, fig.height=8}
 plt_nr_accuracy <- df_all %>%
   group_by(name, error_type) %>%
   relabel_errors() %>%
@@ -334,7 +407,18 @@ df_cor_NR %>%
       footnote = "Corrected for multiple comparisons using FDR method within each category (story or sentence repetitions)",
       locations = cells_column_labels(vars(p.value))
     )
+
+# helper to report a single Spearman correlation from the df_cor tables inline.
+# p.value is already an apa_p() string (e.g. ".002" or "< .001"), so prepend
+# "= " unless it is an inequality.
+report_validation_cor <- function(tab, et) {
+  row <- tab[tab$error_type == et, ]
+  p_str <- if (startsWith(trimws(row$p.value), "<")) row$p.value else paste("=", row$p.value)
+  str_glue("$\\rho$ = {round(row$estimate, 2)}, *p* {p_str}")
+}
 ```
+
+The pattern of associations differed across the two standardized tests. Performance on the **story repetition** subtest was positively and significantly associated with object-order accuracy in the virtual task (`r report_validation_cor(df_cor_NR, "incorrect_object_order")`), with the relationship to placement accuracy being positive but not reaching significance after correction (`r report_validation_cor(df_cor_NR, "incorrect_placement")`). In contrast, correlations with the **sentence repetition** subtest were generally weaker and did not reach significance for either object-order accuracy (`r report_validation_cor(df_cor_SR, "incorrect_object_order")`) or placement accuracy (`r report_validation_cor(df_cor_SR, "incorrect_placement")`). The item-selection error showed almost no variance in the children sample and is therefore not interpreted here. Overall, these results provide preliminary support for the convergent validity of the virtual task — in particular, the object-order component, which captures the temporal sequencing aspect of episodic memory, tracked the narrative-memory measure most closely.
 
 ## Adults vs. children
 
