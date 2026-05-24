@@ -27,11 +27,19 @@ relabel_errors <- function(dat){
   return(dat)
 }
 
+# helper to report a single Tukey comparison in APA style inline
+report_tukey <- function(tab, comparison) {
+  row <- tab[tab[["difficulty comparison"]] == comparison, ]
+  str_glue("*M*~diff~ = {round(row$diff, 2)}, 95% CI [{round(row$lwr, 2)}, ",
+           "{round(row$upr, 2)}], *p* {papaja::apa_p(row[['p adj']], add_equals = TRUE)}")
+}
+
 df_single <- df_all %>%
   group_by(name, school, age_month, gender) %>%
   slice_head(n = 1) %>%
   ungroup()
 
+# adult loading
 source(here::here("scripts/loading-adults.R"), encoding = "UTF-8")
 df_emt_adults <- df_emt_adults %>%
   filter(Environment == "House")
@@ -40,6 +48,7 @@ df_adults_single <- df_emt_adults %>%
   group_by(ID.x) %>%
   slice_head(n=1)
 
+# Combining ---
 df_adults_children_combined <- df_emt_adults %>%
   select(error_type, error_value = errors, difficulty,
          relative_correct, ID = bindingid) %>%
@@ -47,7 +56,6 @@ df_adults_children_combined <- df_emt_adults %>%
          error_type = case_match(error_type,
           "incorrect_order" ~ "incorrect_object_order", .default = error_type)) %>%
   bind_rows(df_vr %>%
-    filter(error_type != "selection") %>%
     select(error_type, difficulty, error_value, relative_correct, ID = name) %>%
     mutate(group = "Children"))
 ```
@@ -77,7 +85,7 @@ df_single %>%
               max_age = "Max")
 ```
 
-A total of `r nrow(df_single)` children participated in the study. Age demographics can be seen in Tab XY. Children were recruited from `r n_distinct(df_single$school)` schools. All children completed all trials. 
+A total of `r nrow(df_single)` children (`r sum(df_single$gender == "female")` girls, `r sum(df_single$gender == "male")` boys) participated in the study. The mean age was `r round(mean(df_single$age_month), 1)` months (*SD* = `r round(sd(df_single$age_month), 1)`, range `r min(df_single$age_month)`–`r max(df_single$age_month)` months). Age demographics by sex are reported in Table XY. Children were recruited from `r n_distinct(df_single$school)` mainstream state kindergartens, and all children completed all trials. As shown in Table XY, age was not balanced across sex (boys were on average older than girls), which constrains the interpretation of age effects within the children sample (see Statistical analysis).
 
 ```{r demographics adults}
 df_adults_single %>%
@@ -96,39 +104,30 @@ df_adults_single %>%
               max_age = "Max")
 ```
 
-## Error description
+A reference sample of `r nrow(df_adults_single)` healthy adults (range `r min(df_adults_single$Age)`–`r max(df_adults_single$Age)` years) completed the same task in the House environment. Because only the House environment was administered to the HCE group and was always presented as the second session, all adult analyses reported below are restricted to House trials. Demographics are summarised in Table XY; the adult sample was predominantly male, which should be borne in mind when comparing groups.
 
-Participant can make one of four distinct errors:
+## Statistical analysis
 
-- Item selection error: the participant selected the wrong item when given the option at the beginning of the recollection trial
-- Incorrect placement: the participant placed the item in a wrong location
-- Object order error: the participant placed the item in a wrong order (different from the order in the instruction)
-- Location order error: the participant placed the item (correct or incorrect) in a possible location, but different from the order in the instruction
+All analyses were conducted in R (R Core Team, 2023) using the `tidyverse`, `lmerTest`, `report`,  packages. Statistical significance was evaluated at $\alpha$ = .05 (two-tailed), and where multiple tests were performed within a family of comparisons, *p* values were adjusted for the false discovery rate (FDR; Benjamini & Hochberg, 1995). Descriptive statistics are reported as means and standard deviations unless stated otherwise.
 
-```{r object location order error corr, message = FALSE, fig.width=10, fig.height=5}
-df_location_object_error <- df_vr_unfiltered %>%
-  filter(error_type %in% c("incorrect_location_order", "incorrect_object_order")) %>%
-  select(-c(relative_error_value, made_error)) %>%
-  pivot_wider(names_from = error_type, values_from = error_value)
-
-df_location_object_error %>%
-  ggplot(aes(incorrect_location_order, incorrect_object_order)) +
-    geom_jitter() +
-    geom_smooth(method = "lm") +
-    labs(x = "Incorrect location order error", y = "Incorrect object order error", 
-        title = "Correlation between incorrect location order error and incorrect object order error") +
-    papaja::theme_apa(base_size = 16)
-
-cor_location_object_order_error <- cor.test(df_location_object_error$incorrect_location_order, 
-                        df_location_object_error$incorrect_object_order,
-                        method="kendall")
+```{r citations}
+citation("report")
+citation("lmerTest")
+citation("tidyverse")
 ```
 
-The object order error and location order errors are in our implementation identical, as it is generally true that when participants places the object in a wrong location, they will also place the object in a wrong order. There are other implementations where the object order error is calculated differently, so the two can be exclusive, but in our case the correlation between object order error and location error is 1 (`r report::report_statistics(cor_location_object_order_error)`), so we left only object order error in the analyses
+For each recall trial we derived three error scores — item-selection errors, placement errors, and object-order errors — together with their relative-accuracy transformation (1 − errors / maximum possible errors), which rescales performance onto a common 0–1 metric and allows comparison across trials with different numbers of objects. Because the number of possible errors scales with trial difficulty, all difficulty-spanning and group comparisons were performed on relative accuracy, whereas difficulty-specific analyses are reported on the raw error counts.
 
-### Relative accuracy
+Prior to the main analyses, we examined the redundancy of the two order-based error measures. The object-order error and the location-order error were essentially interchangeable in the present implementation: when an item was placed in the wrong location it was, by construction, almost always placed in the wrong order as well. Their association was quantified with Kendall's rank correlation ($\tau$), and because the two indices were perfectly correlated ($\tau$ = 1), only the object-order error was retained in all subsequent analyses to avoid redundancy.
 
-As there is a difference in the potential number of errors possible at different difficulties (for example, you cannot make four selection mistakes out of three items), we also calculated the **relative accuracy** (1 - errors/maximum posibble errors). So the number 1 in relative accuracy means the best possible performance. This should allow us to consider the performance across different difficulties.
+**Effect of task difficulty.** The hypothesis that increasing the number of to-be-remembered objects increases the number of recall errors was tested separately for each error type using one-way analyses of variance (ANOVA) with trial difficulty entered as a factor (`error_value ~ difficulty`). Significant omnibus effects were followed up with Tukey's HSD post-hoc comparisons between difficulty levels. Because errors within a trial are not fully independent (an early order error necessarily propagates to later items), order-error effects across difficulty are interpreted descriptively rather than as evidence of independent error accumulation (see limitations).
+
+**Effect of age and sex in children.** The developmental hypothesis was tested with a linear mixed-effects model predicting relative accuracy from age (in months), sex, and their interaction, with a by-participant random intercept to account for the repeated trials per child (`relative_correct ~ age_months * gender + (1 | name)`). Models were fitted with restricted maximum likelihood, and *p* values for fixed effects were obtained from Satterthwaite-approximated degrees of freedom (`lmerTest`). Because age and sex were unbalanced in the children sample (see Participants), the age × sex interaction is interpreted with caution and age effects should not be read as unconfounded estimates of development.
+
+**Children versus adults.** Differences in episodic-memory performance between preschool children and adults were examined at the highest difficulty level common to interpretation (5 objects) using independent-samples Welch *t*-tests on the raw error counts, conducted separately for placement and object-order errors. The item-selection error was not analysed in this comparison because it showed essentially no variance.
+
+**Convergent validity.** Associations between performance on the virtual task and the standardized neuropsychological measures were tested with Spearman's rank correlations ($\rho$), which are robust to the bounded, non-normal distribution of the accuracy scores. In children, relative accuracy (averaged across trials) for each error type was correlated with the NEPSY Narrative Repetition and Sentence Repetition scores; *p* values were FDR-corrected within each neuropsychological test. In adults, relative accuracy was correlated with the two RBANS list-learning indices (RBANS A.1, word list; RBANS A.2, story); these exploratory correlations are reported uncorrected and interpreted descriptively given the small adult sample.
+
 
 ## Average error demographics
 
@@ -196,21 +195,29 @@ aov_selection_difficulty <- aov(error_value ~ as.factor(difficulty), data = filt
 
 We can see that the number of errors increases with increasing difficulty for both object order error (`r report_statistics(aov_order_difficulty)`) and placement error (`r report_statistics(aov_placement_difficulty)`), but not in the selection error (`r report_statistics(aov_selection_difficulty)`).
 
-```{r}
-TukeyHSD(aov_order_difficulty)[[1]] %>%
+```{r tukey HSD for difficulty}
+tukey_order_difficulty <- TukeyHSD(aov_order_difficulty)[[1]] %>%
   as.data.frame() %>%
-  rownames_to_column(var = "difficulty comparison") %>%
+  rownames_to_column(var = "difficulty comparison")
+
+tukey_placement_difficulty <- TukeyHSD(aov_placement_difficulty)[[1]] %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "difficulty comparison")
+
+
+
+tukey_order_difficulty %>%
   gt() %>%
     tab_header(title = "Tukey HSD for object order error") %>%
     fmt_number(columns = where(is.numeric), decimals = 3)
 
-TukeyHSD(aov_placement_difficulty)[[1]] %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "difficulty comparison") %>%
+tukey_placement_difficulty %>%
   gt() %>%
     tab_header(title = "Tukey HSD for placement errors") %>%
     fmt_number(columns = where(is.numeric), decimals = 3)
 ```
+
+Tukey HSD post-hoc comparisons indicated that this increase was driven by the most demanding trials. For the object-order error, the 5-object trials produced significantly more errors than both the 3-object trials (`r report_tukey(tukey_order_difficulty, "5-3")`) and the 4-object trials (`r report_tukey(tukey_order_difficulty, "5-4")`), whereas the difference between the 4- and 3-object trials was not significant (`r report_tukey(tukey_order_difficulty, "4-3")`). The same pattern held for placement errors: the 5-object trials yielded significantly more errors than the 3-object (`r report_tukey(tukey_placement_difficulty, "5-3")`) and the 4-object trials (`r report_tukey(tukey_placement_difficulty, "5-4")`), with no significant difference between the 4- and 3-object trials (`r report_tukey(tukey_placement_difficulty, "4-3")`).
 
 ::: {.callout-warning}
 Just to remind, if one location is incorrect, then more locations will be incorrect after that, as the participant will not be able to place the objects correctly. This will overestimate the number of errors in later trials, as the errors are not independent and it is almost impossible to do "just one error" in the order of objects. Selection and placement are independent from one item to another.
@@ -344,6 +351,9 @@ df_adults_children_combined %>%
 
 ```{r comparison adults children test}
 df_adults_children_combined %>%
+  # selection error exists only for children (adults have no item-selection
+  # measure), so it cannot enter the between-group t-test
+  filter(error_type != "selection") %>%
   relabel_errors() %>%
   group_by(error_type) %>%
   group_modify(~report_table(t.test(error_value ~ group, data = .))) %>%
