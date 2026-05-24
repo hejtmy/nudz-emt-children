@@ -16,6 +16,7 @@ df_vr_all <- df_vr
 df_vr <- df_vr %>%
   filter(difficulty > 3)
 ```
+
 ## Hiding task
 
 The kendall rank correlation was used due to the very low number of errors in both cases and ordinal nature fo the data. Visualisation is difficult due to the nature of the dataset. 

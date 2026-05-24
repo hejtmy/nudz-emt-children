@@ -10,10 +10,6 @@ library(here)
 library(gt)
 library(report)
 here::i_am("web/emt-children.qmd")
-```
-
-```{r loading, message=FALSE, warning=FALSE}
-# loads df_vr and df_all dataframes
 source(here("scripts", "prepare-manuscript-data.R"))
 ```
 
@@ -27,28 +23,6 @@ df_single <- df_all %>%
 ```
 
 A total of `r nrow(df_single)` children participated in the study. The average age was `r round(mean(df_single$age_month), 2)` months (SD = `r round(sd(df_single$age_month), 2)`, Min = `r min(df_single$age_month)`, Max = `r max(df_single$age_month)`). Children were recruited from `r n_distinct(df_single$school)` schools.
-
-### Removing the object location error
-
-To simplify theoutput, we decided to keep only the object location error, as the object location and objec torder are heavilly correlated anyways
-
-```{r object location order error corr, message = FALSE}
-df_location_object_error <- df_vr_unfiltered %>%
-  filter(error_type %in% c("incorrect_location_order", "incorrect_object_order")) %>%
-  select(-c(relative_error_value, made_error)) %>%
-  pivot_wider(names_from = error_type, values_from = error_value)
-
-df_location_object_error %>%
-  ggplot(aes(incorrect_location_order, incorrect_object_order)) +
-    geom_jitter() +
-    geom_smooth(method = "lm") +
-    labs(x = "Incorrect location order error", y = "Incorrect object order error", 
-         title = "Correlation between incorrect location order error and incorrect object order error")
-
-report::report(cor.test(df_location_object_error$incorrect_location_order, 
-                        df_location_object_error$incorrect_object_order,
-                        method = "kendall"))
-```
 
 ## Descriptives
 
@@ -87,6 +61,28 @@ The errors come in four different types:
 
 - incorrect_location_order: the participant placed the item at a location in a wrong order?
 :::
+
+
+```{r object location order error corr, message = FALSE, fig.width=10, fig.height=5}
+df_location_object_error <- df_vr_unfiltered %>%
+  filter(error_type %in% c("incorrect_location_order", "incorrect_object_order")) %>%
+  select(-c(relative_error_value, made_error)) %>%
+  pivot_wider(names_from = error_type, values_from = error_value)
+
+df_location_object_error %>%
+  ggplot(aes(incorrect_location_order, incorrect_object_order)) +
+    geom_jitter() +
+    geom_smooth(method = "lm") +
+    labs(x = "Incorrect location order error", y = "Incorrect object order error", 
+        title = "Correlation between incorrect location order error and incorrect object order error") +
+    papaja::theme_apa(base_size = 16)
+
+cor_location_object_order_error <- cor.test(df_location_object_error$incorrect_location_order, 
+                        df_location_object_error$incorrect_object_order,
+                        method="kendall")
+```
+
+The object order error and location order errors are in our implementation identical, as it is generally true that when participants places the object in a wrong location, they will also place the object in a wrong order. There are other implementations where the object order error is calculated differently, so the two can be exclusive, but in our case the correlation between object order error and location error is 1 (`r report::report_statistics(cor_location_object_order_error)`), so we left only object order error in the analyses
 
 ```{r error descriptives, echo = FALSE, message = FALSE}
 ls_analysis <- list(mean = mean, sd = sd, min = min, 
@@ -434,12 +430,4 @@ df_children_seniors %>%
     facet_wrap(~error_type, scales = "free") +
     labs(x = "Group", y = "Error value", 
             title = "Error value in adults and children in different error types")
-```
-
-```{r comparing seniors and children}
-df_children_seniors %>%
-  group_by(error_type) %>%
-  group_modify(~broom::tidy(t.test(error_value ~ group, data = .))) %>%
-  select(-method, -alternative) %>%
-  knitr::kable()
 ```

@@ -9,7 +9,8 @@ df_emt_adults <- read.table(here("data/df_emt_adults.csv"),
 
 # rename colums age to asd
 df_emt_adults <- df_emt_adults %>%
-  rename("Age" = "Věk", "Technical_education" = "Tech..Vz.",
+  rename("Age" = "Věk", 
+         "Technical_education" = "Tech..Vz.",
          "Gender" = "Pohlaví")
 
 df_emt_adults <- df_emt_adults %>%

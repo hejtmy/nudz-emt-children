@@ -19,7 +19,6 @@ df_vr <- df_vr[, -c(30:33)] %>%
          # relabel gender 1 to female and 0 to male
          gender = case_match(gender,  c(0) ~ "male", c(1) ~ "female"))
 
-# 
 df_vr <- df_vr %>%
   select(-contains("all"), -(contains(","))) %>%
   pivot_longer(cols = c(starts_with("CO"), starts_with("OPE"),
