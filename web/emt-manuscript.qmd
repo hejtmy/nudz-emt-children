@@ -422,34 +422,44 @@ The pattern of associations differed across the two standardized tests. Performa
 
 ## Adults vs. children
 
+We hypothesized that healthy adults would outperform preschool children, reflecting the still-immature state of episodic memory in early childhood. Because the two groups completed different difficulty levels (children were tested with 2–5 objects and adults with 3–11 objects), a direct comparison of the raw number of errors across all trials would confound group with task difficulty. We therefore restricted the between-group comparison to the single difficulty level common to both samples — the 5-object trials — and compared the raw number of errors with independent-samples Welch *t*-tests, conducted separately for the placement and object-order errors. The item-selection error was excluded because it is recorded only in the children's version of the task and showed virtually no variance.
+
+```{r adults children difficulty 5 data}
+df_adults_children_5 <- df_adults_children_combined %>%
+  filter(difficulty == 5, error_type != "selection")
+```
+
 ```{r comparison adults children descriptives}
-df_adults_children_combined %>%
+df_adults_children_5 %>%
   relabel_errors() %>%
   group_by(group, error_type) %>%
   summarise(report_val = str_glue("{round(mean(error_value), 3)} ({round(sd(error_value), 3)})")) %>%
   pivot_wider(names_from = group, values_from = report_val) %>%
   gt() %>%
-    tab_header(title = "Descriptives of error values in adults and children in different error types for 5 item difficulty",
+    tab_header(title = "Descriptives of error values in adults and children for the 5-object trials",
               subtitle = "Mean (SD)")
 ```
 
 ```{r comparison adults children test}
-df_adults_children_combined %>%
-  # selection error exists only for children (adults have no item-selection
-  # measure), so it cannot enter the between-group t-test
-  filter(error_type != "selection") %>%
+tbl_adults_children_test <- df_adults_children_5 %>%
   relabel_errors() %>%
   group_by(error_type) %>%
   group_modify(~report_table(t.test(error_value ~ group, data = .))) %>%
+  ungroup()
+
+tbl_adults_children_test %>%
   select(-c(Parameter, Group, starts_with("CI"), Method, Alternative, starts_with("d_CI"))) %>%
-  ungroup() %>%
   gt() %>%
-    tab_header(title = "Comparison of error values in adults and children in different error types for 5 item difficulty",
+    tab_header(title = "Comparison of error values in adults and children for the 5-object trials",
               subtitle = "Independent samples t-test") %>%
     fmt_number(columns = where(is.numeric), decimals = 3)
 ```
 
-### Aduts RBANS
+As predicted, adults made significantly fewer errors than children on the 5-object trials for both error types. For the object-order error, children (`r df_adults_children_5 %>% filter(group == "Children", error_type == "incorrect_object_order") %>% summarise(s = str_glue("*M* = {round(mean(error_value),2)}, *SD* = {round(sd(error_value),2)}")) %>% pull(s)`) made substantially more errors than adults (`r df_adults_children_5 %>% filter(group == "Adults", error_type == "incorrect_object_order") %>% summarise(s = str_glue("*M* = {round(mean(error_value),2)}, *SD* = {round(sd(error_value),2)}")) %>% pull(s)`), `r tbl_adults_children_test %>% filter(error_type == "Object order") %>% summarise(s = str_glue("*t*({round(df_error,1)}) = {round(t,2)}, *p* {papaja::apa_p(p, add_equals = TRUE)}")) %>% pull(s)`. The same was true for the placement error, with children (`r df_adults_children_5 %>% filter(group == "Children", error_type == "incorrect_placement") %>% summarise(s = str_glue("*M* = {round(mean(error_value),2)}, *SD* = {round(sd(error_value),2)}")) %>% pull(s)`) making more errors than adults (`r df_adults_children_5 %>% filter(group == "Adults", error_type == "incorrect_placement") %>% summarise(s = str_glue("*M* = {round(mean(error_value),2)}, *SD* = {round(sd(error_value),2)}")) %>% pull(s)`), `r tbl_adults_children_test %>% filter(error_type == "Placement") %>% summarise(s = str_glue("*t*({round(df_error,1)}) = {round(t,2)}, *p* {papaja::apa_p(p, add_equals = TRUE)}")) %>% pull(s)`. These results confirm that, even at the difficulty level the children found most demanding, episodic memory performance in preschoolers remained well below adult levels, consistent with the protracted development of episodic memory through childhood.
+
+### Adult convergent validity (RBANS)
+
+As a parallel check on convergent validity in the adult sample, we correlated each participant's average relative accuracy in the house task with their scores on the two list-learning indices of the RBANS (A.1, immediate word-list recall; A.2, story recall), using Spearman's rank correlations. As shown in Table XY, average task accuracy was positively and significantly associated with both RBANS indices (word list: `r df_emt_adults %>% pivot_longer(c(RBANS.A.1, RBANS.A.2), names_to = "RBANS", values_to = "v") %>% mutate(acc = mean(relative_correct, na.rm = TRUE), .by = ID.x) %>% filter(RBANS == "RBANS.A.1") %>% summarise(s = {ct <- suppressWarnings(cor.test(v, acc, method = "spearman")); str_glue("$\\rho$ = {round(ct$estimate,2)}, *p* {papaja::apa_p(ct$p.value, add_equals = TRUE)}")}) %>% pull(s)`; story: `r df_emt_adults %>% pivot_longer(c(RBANS.A.1, RBANS.A.2), names_to = "RBANS", values_to = "v") %>% mutate(acc = mean(relative_correct, na.rm = TRUE), .by = ID.x) %>% filter(RBANS == "RBANS.A.2") %>% summarise(s = {ct <- suppressWarnings(cor.test(v, acc, method = "spearman")); str_glue("$\\rho$ = {round(ct$estimate,2)}, *p* {papaja::apa_p(ct$p.value, add_equals = TRUE)}")}) %>% pull(s)`), mirroring the convergent-validity pattern observed in children and supporting the interpretation of the virtual task as a measure of episodic memory.
 
 ```{r}
 df_emt_adults %>%
