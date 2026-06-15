@@ -327,10 +327,8 @@ df_all %>%
 ```{r lmer model sentence repetition, eval=FALSE}
 lmerTest::lmer(relative_correct ~ error_type*SR + difficulty + (1|name), data = df_all) %>%
   summary()
-
 lmerTest::lmer(relative_correct ~ error_type*NR + difficulty + (1|name), data = df_all) %>%
   summary()
-
 ```
 
 ## Comparing adults in house

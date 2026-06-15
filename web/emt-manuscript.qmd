@@ -20,8 +20,8 @@ source(here::here("scripts/prepare-manuscript-data.R"))
 relabel_errors <- function(dat){
   dat <- dat %>% 
     mutate(error_type = case_when(
-      error_type == "selection" ~ "Item selection",
-      error_type == "incorrect_placement" ~ "Placement",
+      error_type == "selection" ~ "Object selection",
+      error_type == "incorrect_placement" ~ "Object placement",
       error_type == "incorrect_object_order" ~ "Object order", 
       TRUE ~ error_type
     ))
@@ -160,35 +160,51 @@ Prior to the main analyses, we examined the redundancy of the two order-based er
 
 ## Average error demographics
 
-```{r fig.width=12, fig.height=8}
+```{r fig.width=15, fig.height=12}
 #| out-width: 80%
+# colour palette shared by boxplots and jittered points; children plotted first
+group_colours <- c(Children = "#2C6FBB", Adults = "#E69F00")
+
 plt_raw_error <- df_adults_children_combined %>%
-  # relabel fill selection becomes item selection, incorrect_placement becomes placement error 
+  # relabel fill selection becomes item selection, incorrect_placement becomes placement error
   relabel_errors() %>%
+  # filter(error_type != "Object selection") %>%
   select(difficulty, error_type, error_value, group) %>%
+  mutate(group = factor(group, levels = c("Children", "Adults"))) %>%
   ggplot(aes(x = as.factor(difficulty), y = error_value, fill = group)) +
-    geom_boxplot() +
-    guides(fill = "none") +
+    geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+    geom_point(aes(colour = group), size = 0.8, alpha = 1,
+               position = position_jitterdodge(jitter.width = 0.15, jitter.height = 0.5, dodge.width = 0.75)) +
+    scale_fill_manual(values = group_colours) +
+    scale_colour_manual(values = group_colours) +
     papaja::theme_apa(base_size = 18) +
-    geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
-    labs(x = "Trial difficulty", title = "Absolute number of errors") +
+    labs(x = NULL, y = "Absolute number of errors", fill = NULL, colour = NULL) +
+    theme(legend.position = "right") +
     facet_wrap(~error_type)
 
 plt_relative_correct <- df_adults_children_combined %>%
   relabel_errors() %>%
+  #filter(error_type != "Object selection") %>%
   select(difficulty, relative_correct, error_type, group) %>%
-  ggplot(aes(x = as.factor(difficulty), y = relative_correct, fill = group)) + 
-    geom_jitter(width = 0.2, height = 0.05, alpha = 0.5) +
-    labs(x = "Trial difficulty", title = "Relative accuracy (1 is perfect performance)") +
-    geom_boxplot() +
+  mutate(group = factor(group, levels = c("Children", "Adults"))) %>%
+  ggplot(aes(x = as.factor(difficulty), y = relative_correct, fill = group)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+    geom_point(aes(colour = group), size = 0.8, alpha = 1,
+               position = position_jitterdodge(jitter.width = 0.25, jitter.height = 0.05, dodge.width = 0.75)) +
+    scale_fill_manual(values = group_colours) +
+    scale_colour_manual(values = group_colours) +
     papaja::theme_apa(base_size = 18) +
-    theme(legend.position = "bottom") +
+    labs(x = "Trial difficulty", y = "Relative accuracy", fill = NULL, colour = NULL) +
+    theme(legend.position = "right") +
     facet_wrap(~error_type)
 
 plt_raw_error / plt_relative_correct +
+  plot_layout(guides = "collect") +
   plot_annotation(
     caption = '',
-  )
+  ) &
+  theme(legend.position = "right")
+ggsave(here::here("report/figures/errors_figure3_no_selection.png"), width = 12, height = 8, units = "in", dpi = 300)
 ```
 
 ## Increasing number of errors with increasing difficulty
@@ -272,8 +288,9 @@ df_vr %>%
     labs(x = "Age (months)",
          y = "Relative accuracy (1 = errorless performance)") +
     papaja::theme_apa(base_size = 14) +
-    theme(legend.position = "bottom",
+    theme(legend.position = "right",
           panel.spacing = unit(1, "lines"))
+ggsave(here::here("report/figures/age_difficulty_relative_accuracy.png"), width = 10, height = 8, units = "in", dpi = 300)
 ```
 
 ```{r age and performance, eval = FALSE}
@@ -357,18 +374,17 @@ df_all %>%
   fmt_number(columns = c(mean, sd), decimals = 3)
 ```
 
-```{r relationship between sentence, fig.width=12, fig.height=8}
+```{r relationship between sentence, fig.width=15, fig.height=10}
 plt_nr_accuracy <- df_all %>%
   group_by(name, error_type) %>%
   relabel_errors() %>%
   slice_head(n = 1) %>%
   ggplot(aes(all_trials_avg_relative_correct, NR)) +
-  geom_point() +
-    geom_smooth(method = "lm", color = "brown") +
+    geom_point(colour = group_colours["Children"]) +
+    geom_smooth(method = "lm", colour = "red", fill = group_colours["Children"]) +
     facet_wrap(~error_type, scales = "free") +
-    labs(x = "Relative accuracy (averaged across all trials)", 
-         y = "Story repetition score" , 
-         title = "Relationship between relative accuracy and story repetition score for all trials") +
+    labs(x = NULL,
+         y = "Story repetition score") +
   papaja::theme_apa(base_size = 16)
 
 plt_sr_accuracy <- df_all %>%
@@ -376,15 +392,50 @@ plt_sr_accuracy <- df_all %>%
   relabel_errors() %>%
   slice_head(n = 1) %>%
   ggplot(aes(all_trials_avg_relative_correct, SR)) +
-    geom_point() +
-    geom_smooth(method = "lm", color = "violet") +
+    geom_point(colour = group_colours["Children"]) +
+    geom_smooth(method = "lm", colour = "red", fill = group_colours["Children"]) +
     facet_wrap(~error_type, scales = "free") +
-    labs(x = "Relative accuracy (averaged across all trials)", 
-         y = "Sentence repetition score" , 
-         title = "Relationship between relative accuracy and sentence repetition score for all trials") +
+    labs(x = "Relative accuracy (averaged across all trials)",
+         y = "Sentence repetition score") +
+  papaja::theme_apa(base_size = 16) +
+  theme(strip.text = element_blank())
+
+plt_nr_accuracy / plt_sr_accuracy
+ggsave(here::here("report/figures/validation_figure.png"),
+      width = 15, height = 10, units = "in", dpi = 300)
+```
+
+```{r relationship between sentence no object selection, fig.width=15, fig.height=10}
+plt_nr_accuracy <- df_all %>%
+  group_by(name, error_type) %>%
+  relabel_errors() %>%
+  filter(error_type != "Object selection") %>%
+  slice_head(n = 1) %>%
+  ggplot(aes(all_trials_avg_relative_correct, NR)) +
+    geom_point(colour = group_colours["Children"]) +
+    geom_smooth(method = "lm", colour = "red", fill = group_colours["Children"]) +
+    facet_wrap(~error_type, scales = "free") +
+    labs(x = NULL,
+         y = "Story repetition score") +
   papaja::theme_apa(base_size = 16)
 
-plt_nr_accuracy / plt_sr_accuracy 
+plt_sr_accuracy <- df_all %>%
+  group_by(name, error_type) %>%
+  relabel_errors() %>%
+  filter(error_type != "Object selection") %>%
+  slice_head(n = 1) %>%
+  ggplot(aes(all_trials_avg_relative_correct, SR)) +
+    geom_point(colour = group_colours["Children"]) +
+    geom_smooth(method = "lm", colour = "red", fill = group_colours["Children"]) +
+    facet_wrap(~error_type, scales = "free") +
+    labs(x = "Relative accuracy (averaged across all trials)",
+         y = "Sentence repetition score") +
+  papaja::theme_apa(base_size = 16) +
+  theme(strip.text = element_blank())
+
+plt_nr_accuracy / plt_sr_accuracy
+ggsave(here::here("report/figures/validation_figure_no_object_selection.png"),
+      width = 15, height = 10, units = "in", dpi = 300)
 ```
 
 ```{r story repetition score}
