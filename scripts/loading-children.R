@@ -17,7 +17,8 @@ df_vr <- rename_demographics(df_vr)
 df_vr <- df_vr[, -c(30:33)] %>%
   mutate(age_months = age_month,
          # relabel gender 1 to female and 0 to male
-         gender = case_match(gender,  c(0) ~ "male", c(1) ~ "female"))
+         gender = case_match(gender,  c(0) ~ "male", c(1) ~ "female"),
+         name = paste0(name, "_", school))
 
 df_vr <- df_vr %>%
   select(-contains("all"), -(contains(","))) %>%
@@ -34,7 +35,7 @@ df_vr <- df_vr %>%
                                 error_type == "LOE" ~ "incorrect_location_order")) %>%
   pivot_wider(names_from = "error_type", values_from = "error_value") %>%
   mutate(total_error = selection + incorrect_placement +
-           incorrect_object_order + incorrect_location_order) %>%
+          incorrect_object_order + incorrect_location_order) %>%
   pivot_longer(cols = c(selection, incorrect_placement, incorrect_object_order,
                         incorrect_location_order, total_error),
                names_to = "error_type",
@@ -49,13 +50,15 @@ df_vr <- df_vr %>%
 ## NR SR preparation -------
 df_nr <- read_excel(here("data/processed-data.xlsx"),
                     sheet = 1, na = c("", "-"))
-df_nr <- rename_demographics(df_nr)
+df_nr <- rename_demographics(df_nr) %>%
+  mutate(name = paste0(name, "_", school))
 df_nr <- select(df_nr, 1:7, NR = `NR [40]`, SR = `SR [34]`)
 
 ## Hiding preparation -------
 df_hiding <- read_excel(here("data/processed-data.xlsx"),
                         sheet = 6, na = c("", "-"))
-df_hiding <- rename_demographics(df_hiding)
+df_hiding <- rename_demographics(df_hiding) %>%
+  mutate(name = paste0(name, "_", school))
 
 colnames(df_hiding)[8:13] <- c(paste0(c("plush_"), c("what", "where", "order")),
                                paste0(c("child_"), c("what", "where", "order")))

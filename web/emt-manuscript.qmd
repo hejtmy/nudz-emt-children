@@ -14,7 +14,7 @@ library(report)
 library(stringr)
 library(patchwork)
 library(performance)
-here::i_am("web/emt-children.qmd")
+here::i_am("web/emt-manuscript.qmd")
 source(here::here("scripts/prepare-manuscript-data.R"))
 
 relabel_errors <- function(dat){
@@ -89,6 +89,11 @@ df_vr %>%
 
 ```{r demographics age}
 df_single %>%
+  summarise(n = n(), mean_age = mean(age_month), 
+            sd_age = sd(age_month), min_age = min(age_month),
+            max_age = max(age_month))
+
+df_single %>%
   group_by(gender) %>%
   summarise(n = n(), mean_age = mean(age_month), 
             sd_age = sd(age_month), min_age = min(age_month),
@@ -107,6 +112,12 @@ df_single %>%
 A total of `r nrow(df_single)` children (`r sum(df_single$gender == "female")` girls, `r sum(df_single$gender == "male")` boys) participated in the study. The mean age was `r round(mean(df_single$age_month), 1)` months (*SD* = `r round(sd(df_single$age_month), 1)`, range `r min(df_single$age_month)`–`r max(df_single$age_month)` months). Age demographics by sex are reported in Table XY. Children were recruited from `r n_distinct(df_single$school)` mainstream state kindergartens, and all children completed all trials. As shown in Table XY, age was not balanced across sex (boys were on average older than girls), which constrains the interpretation of age effects within the children sample (see Statistical analysis).
 
 ```{r demographics adults}
+df_adults_single %>%
+ungroup() %>%
+  summarise(n = n(), mean_age = mean(Age), 
+            sd_age = sd(Age), min_age = min(Age),
+            max_age = max(Age))
+
 df_adults_single %>%
   group_by(Gender) %>%
   summarise(n = n(), mean_age = mean(Age), 
@@ -381,17 +392,17 @@ df_cor_NR <- df_all %>%
   group_by(error_type) %>%
   group_modify(~broom::tidy(cor.test(.$NR, .$relative_correct, method = "spearman"))) %>%
   select(estimate, statistic, p.value) %>%
-  mutate(p.value = papaja::apa_p(p.adjust(p.value)),
-        value = "Story repetition") %>%
-  ungroup() 
+  ungroup() %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value, method = "fdr")),
+        value = "Story repetition") 
 
 df_cor_SR <- df_all %>%
   group_by(error_type) %>%
   group_modify(~broom::tidy(cor.test(.$SR, .$relative_correct, method = "spearman"))) %>%
   select(estimate, statistic, p.value) %>%
-  mutate(p.value = papaja::apa_p(p.adjust(p.value)), 
-        value = "Sentence repetition") %>%
-  ungroup()
+  ungroup() %>%
+  mutate(p.value = papaja::apa_p(p.adjust(p.value, method = "fdr")), 
+        value = "Sentence repetition") 
 
 df_cor_NR %>%
   bind_rows(df_cor_SR) %>%

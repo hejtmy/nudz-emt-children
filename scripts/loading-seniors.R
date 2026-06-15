@@ -3,7 +3,7 @@ library(readxl)
 library(stringr)
 i_am("scripts/loading-seniors.R")
 
-df_seniors <- read_excel(here("data/senior-data.xlsx"), sheet = 1, skip = 1)
+df_seniors <- read_excel(here("data/senior-data.xlsx"),sheet = 1, skip = 1)
 
 df_seniors <- df_seniors %>%
     mutate(ID = str_glue("senior_{row_number()}")) %>%
